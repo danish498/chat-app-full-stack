@@ -1,0 +1,160 @@
+openapi: 3.0.3
+
+info:
+  title: Swagger  - OpenAPI 3.0
+  description: >
+    This is a sample description for the Swagger Petstore API.
+  termsOfService: http://swagger.io/terms/
+  contact:
+    email: daanish629@gmail.com
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: 1.0.11
+
+externalDocs:
+  description: Find out more about Swagger in details
+  url: http://swagger.io
+
+servers:
+  - url: ${{server}}
+
+tags:
+  - name: users
+    description: Operations about user
+
+paths:
+  /register:
+    post:
+      tags:
+        - users
+      summary: User information
+      description: Chat app user registration
+      operationId: UserRegistration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/User"
+          application/xml:
+            schema:
+              $ref: "#/components/schemas/User"
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/User"
+      responses:
+        "200":
+          description: "User registered successfully"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      email:
+                        type: string
+                        format: email
+                      username:
+                        type: string
+                      first_name:
+                        type: string
+                      last_name:
+                        type: string
+                      token:
+                        type: string
+        "409":
+          description: "User with email or username already exists"
+  /login:
+    get:
+      tags:
+        - users
+      summary: Logs user into the system
+      description: ''
+      operationId: loginUser
+      parameters:
+        - name: username
+          in: query
+          description: The user name for login
+          required: true
+          schema:
+            type: string
+        - name: password
+          in: query
+          description: The password for login in clear text
+          required: false
+          schema:
+            type: string
+      responses:
+          '200':
+            description: Login successful
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    message:
+                      type: string
+                      description: Login success message
+                      example: Login successful
+                    user:
+                      type: object
+                      description: User object without password
+                      properties:
+                        # Replace with actual user properties (excluding password)
+                        id:
+                          type: integer
+                          description: User ID
+                          example: 1
+                        # ... other user properties
+          '401':
+            description: Unauthorized (invalid credentials)
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    message:
+                      type: string
+                      description: Error message for invalid credentials
+                      example: Invalid username or password
+          '409':
+            description: Conflict (other login-related error)
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    message:
+                      type: string
+                      description: Specific error message related to login (e.g., user not found)
+                    errors:
+                      type: array
+                      description: Array of error details (optional)
+                      items:
+                        type: string
+                        example: User not found
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        username:
+          type: string
+        image:
+          type: string
+      xml:
+        name: order
