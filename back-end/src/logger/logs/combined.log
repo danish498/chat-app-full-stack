@@ -1152,8 +1152,6 @@
 [17 May, 2024 - 17:27:02:272] [35mhttp[39m: [35m::ffff:192.168.29.18 POST /api/v1/message 200 - 19.054 ms[39m
 [17 May, 2024 - 17:27:04:274] [35mhttp[39m: [35m::ffff:192.168.29.18 POST /api/v1/message 200 - 16.548 ms[39m
 [17 May, 2024 - 17:27:32:2732] [35mhttp[39m: [35m::ffff:192.168.29.18 GET /api/v1/message/28 200 - 17.011 ms[39m
-<<<<<<< HEAD
-=======
 [15 Apr, 2025 - 13:40:03:403] [31merror[39m: [31mUser with email or username already exists[39m
 [15 Apr, 2025 - 13:40:03:403] [35mhttp[39m: [35m::ffff:172.19.0.1 POST /api/v1/register 409 - 38.595 ms[39m
 [15 Apr, 2025 - 13:40:16:4016] [31merror[39m: [31mUser with email or username already exists[39m
@@ -1892,4 +1890,3 @@
 [22 Apr, 2025 - 10:09:08:98] [35mhttp[39m: [35m::ffff:172.19.0.1 OPTIONS /api/v1/chat 204 - 0.195 ms[39m
 [22 Apr, 2025 - 10:09:08:98] [35mhttp[39m: [35m::ffff:172.19.0.1 GET /api/v1/getAllUsers 304 - 36.871 ms[39m
 [22 Apr, 2025 - 10:09:08:98] [35mhttp[39m: [35m::ffff:172.19.0.1 GET /api/v1/chat 304 - 35.042 ms[39m
->>>>>>> b026c32 (socket initilized in the backend)

@@ -1,11 +1,7 @@
 openapi: 3.0.3
 
 info:
-<<<<<<< HEAD
-  title: Swagger Petstore - OpenAPI 3.0
-=======
   title: Swagger  - OpenAPI 3.0
->>>>>>> b026c32 (socket initilized in the backend)
   description: >
     This is a sample description for the Swagger Petstore API.
   termsOfService: http://swagger.io/terms/
