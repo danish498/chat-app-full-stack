@@ -9,11 +9,11 @@ export const signUpSchema = z
   .object({
     firstName: z
       .string()
-      .min(3, "First name should be container at least 3 characters")
+      .min(3, "First name should contain at least 3 characters")
       .max(18),
     lastName: z
       .string()
-      .min(3, "Last name should be container at least 3 characters")
+      .min(3, "Last name should contain at least 3 characters")
       .max(18),
     email: z.string().email(),
     username: z.string().min(2, {
@@ -23,8 +23,10 @@ export const signUpSchema = z
     confirmPassword: z.string(),
     image: z
       .any()
+      .optional()
       .refine(
-        (file) => ACCEPTED_IMAGE_TYPES.includes(file[0]?.type),
+        (file) =>
+          !file || (file.length > 0 && ACCEPTED_IMAGE_TYPES.includes(file[0]?.type)),
         "Only .jpg, .jpeg, .png and .webp formats are supported."
       ),
   })

@@ -25,6 +25,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(255),
         unique: true,
       },
+
+      profile_picture: {
+        type: DataTypes.STRING,
+        defaultValue: "https://i.pravatar.cc/300?u=default",
+      },
     },
     {
       timestamps: true,

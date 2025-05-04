@@ -7,6 +7,6 @@ const { sendMessage, getAllMessages } = require("../controllers/message.controll
 const router = express.Router();
 
 router.route("/message").post(verifyJWT, sendMessage);
-router.route("/message/:chat_id").get(verifyJWT, getAllMessages);
+router.route("/messages/:chat_id").get(verifyJWT, getAllMessages);
 
 module.exports = router;

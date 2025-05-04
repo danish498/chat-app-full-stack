@@ -41,6 +41,10 @@ import { Message } from "@/app/data";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
+import { Popover, PopoverTrigger } from "@radix-ui/react-popover";
+import { PopoverContent } from "./ui/popover";
+import { useEffect, useState } from "react";
+import { UserService } from "@/service/userService";
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -50,7 +54,7 @@ interface SidebarProps {
     avatar: string;
     variant: "grey" | "ghost";
   }[];
-  handleChatClick?: () => void;
+  handleChatClick?: (user: any) => void;
   isMobile: boolean;
 }
 
@@ -59,7 +63,27 @@ export function Sidebar({
   isCollapsed,
   isMobile,
   handleChatClick,
-}: SidebarProps) {
+  setSelectedUser,
+  handleChatInitiate,
+  isSearchUserOpen,
+  setIsSearchUserOpen
+}: any) {
+  console.log("checkthelogssss", links);
+
+  const userService = new UserService();
+
+  const [getAllUsers, setGetAllUsers] = useState([]);
+
+  useEffect(() => {
+    const fetchAllUsers = async () => {
+      try {
+        const response = await userService.getAllUsers();
+        setGetAllUsers(response.data);
+      } catch (error) {}
+    };
+    fetchAllUsers();
+  }, []);
+
   return (
     <div
       data-collapsed={isMobile}
@@ -140,7 +164,7 @@ export function Sidebar({
                           </Avatar>
                           <div className="flex flex-col ">
                             <span>{link.name}</span>
-                            <span>{`Email: danish@gmail.com`}</span>
+                            {/* <span>{`Email: danish@gmail.com`}</span> */}
                           </div>
                         </button>
                       </nav>
@@ -174,7 +198,26 @@ export function Sidebar({
           </Link>
         </div>
       </div>
-      <Input placeholder="Search the user..." />
+
+      <Popover open= {isSearchUserOpen}  onOpenChange={setIsSearchUserOpen} >
+        <PopoverTrigger>
+          <Input placeholder="Search the user..." />
+        </PopoverTrigger>
+        <PopoverContent>
+          <div className="flex flex-col gap-3">
+            {getAllUsers.map((user: any) => (
+              <div
+                key={user.id}
+                className="px-4 py-2 bg-gray-100 rounded-lg font-medium cursor-pointer"
+                onClick={() => handleChatInitiate(user)}
+              >
+                {user?.username}
+              </div>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
+
       <Tabs
         defaultValue="all"
         className="space-y-1 px-2 group-[[data-collapsed=true]]:justify-center group-[[data-collapsed=true]]:px-2"
@@ -193,7 +236,7 @@ export function Sidebar({
               <>
                 <button
                   key={index}
-                  onClick={handleChatClick}
+                  onClick={() => handleChatClick(link)}
                   className={cn(
                     buttonVariants({ variant: link.variant, size: "xl" }),
                     link.variant === "grey" &&

@@ -53,6 +53,7 @@ app.use("/api/v1", messageRoutes);
 app.post("/api/v1/seed/user", seedUsers);
 app.get("/api/v1/seed/generated-credentials", getGeneratedCredentials);
 
+<<<<<<< HEAD
 app.use(
   "/api/v1",
   swaggerUi.serve,
@@ -63,6 +64,18 @@ app.use(
     customSiteTitle: "Chat Application",
   })
 );
+=======
+// app.use(
+//   "/api/v1",
+//   swaggerUi.serve,
+//   swaggerUi.setup(swaggerDocument, {
+//     swaggerOptions: {
+//       docExpansion: "none", // keep all the sections collapsed by default
+//     },
+//     customSiteTitle: "Chat Application",
+//   })
+// );
+>>>>>>> b026c32 (socket initilized in the backend)
 
 // sequelize.sync().then(() => {
 //   console.log("Database synced");

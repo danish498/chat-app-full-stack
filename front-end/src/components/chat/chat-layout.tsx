@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Sidebar } from "../sidebar";
 import { Chat } from "./chat";
+import { ChatService } from "@/service/chatService";
 
 interface ChatLayoutProps {
   defaultLayout: number[] | undefined;
@@ -23,9 +24,17 @@ export function ChatLayout({
   navCollapsedSize,
 }: ChatLayoutProps) {
   const [isCollapsed, setIsCollapsed] = React.useState(defaultCollapsed);
-  const [selectedUser, setSelectedUser] = React.useState(userData[0]);
+  const [selectedUser, setSelectedUser] = React.useState({});
   const [isMobile, setIsMobile] = useState(false);
   const [toggleSidebarAndChat, setIsToggleSidebarAndChat] = useState(true);
+
+  const [isSearchUserOpen, setIsSearchUserOpen] = useState(false);
+
+  const [allChats, setAllChats] = useState([]);
+
+  console.log("sfsdfsdfsdfsdfsd", selectedUser);
+
+  const chatService = new ChatService();
 
   useEffect(() => {
     const checkScreenWidth = () => {
@@ -49,9 +58,43 @@ export function ChatLayout({
     setIsToggleSidebarAndChat(!toggleSidebarAndChat);
   };
 
-  const handleChatClick = () => {
-    console.log("sdfaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+  const handleChatClick = (user: any) => {
+    console.log("sdfaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", user);
     setIsToggleSidebarAndChat(!toggleSidebarAndChat);
+    setSelectedUser(user);
+  };
+
+  const fetchChats = async () => {
+    try {
+      const response = await chatService.getAllChats();
+      setAllChats(response.data?.chats);
+      console.log("🚀 ~ fetchChats ~ response:", response);
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchChats();
+  }, []);
+
+  console.log("sfsdfsdfsdfsdfsdfsdfsdfsdfsdfsd", selectedUser);
+
+  const handleChatInitiate = async (user: any) => {
+    console.log("sfsdfsdfsdfsdfsdfsdfsdfsdfsdfsdsdfsdfsd", user);
+    try {
+      const response = chatService.createChat(user.user_id);
+      // setSelectedUser({
+      //   name: response.data.recipientUsers.username,
+      //   messages: [],
+      //   avatar: "",
+      //   // variant: selectedUser.name === user.name ? "grey" : "ghost",
+      //   variant: "grey",
+      //   chatId: response.data.chat.chat_id,
+      // });
+      setIsSearchUserOpen(false);
+      await fetchChats();
+    } catch (error) {}
   };
 
   return (
@@ -60,14 +103,20 @@ export function ChatLayout({
         <div className="md:border-r md:border-slate-200 md:max-w-[350px] w-full">
           <Sidebar
             isCollapsed={isCollapsed || isMobile}
-            links={userData.map((user) => ({
-              name: user.name,
-              messages: user.messages ?? [],
-              avatar: user.avatar,
-              variant: selectedUser.name === user.name ? "grey" : "ghost",
+            links={allChats.map((user: any) => ({
+              name: user.recipientUsers.username,
+              messages: [],
+              avatar: user.recipientUsers.profile_picture,
+              // variant: selectedUser.name === user.name ? "grey" : "ghost",
+              variant: "grey",
+              chatId: user.chat_id,
             }))}
             handleChatClick={handleChatClick}
             isMobile={isMobile}
+            setSelectedUser={setSelectedUser}
+            handleChatInitiate={handleChatInitiate}
+            isSearchUserOpen={isSearchUserOpen}
+            setIsSearchUserOpen={setIsSearchUserOpen}
           />
         </div>
       )}

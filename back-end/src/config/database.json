@@ -1,15 +1,15 @@
 {
   "development": {
     "username": "root",
-    "password": "test",
-    "database": "e-test",
+    "password": "",
+    "database": "chatt-app",
     "host": "localhost",
     "dialect": "mysql"
   },
   "production": {
     "username": "root",
     "password": "",
-    "database": "test",
+    "database": "chatt-app",
     "host": "localhost",
     "dialect": "mysql"
   }

@@ -4,7 +4,7 @@ services:
   backend:
     build: .
     ports:
-      - "3000:3000"
+      - "9090:9090"
     depends_on:
       - db
     environment:
@@ -12,12 +12,16 @@ services:
       DB_USER: root
       DB_PASSWORD: ""
       DB_NAME: chatt-app
+    volumes:
+      - .:/src
+      - /src/node_modules  # avoid overwriting container's node_modules
+    command: npm start  # ensure nodemon is used instead of default CMD
 
   db:
     image: mysql:8
     restart: always
     environment:
-      MYSQL_ALLOW_EMPTY_PASSWORD: "yes" 
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
       MYSQL_DATABASE: chatt-app
     ports:
       - "3306:3306"
@@ -29,4 +33,4 @@ services:
       - "8080:80"
     environment:
       PMA_HOST: db
-      MYSQL_ALLOW_EMPTY_PASSWORD: "yes" 
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"

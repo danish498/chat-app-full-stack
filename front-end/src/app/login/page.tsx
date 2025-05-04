@@ -1,7 +1,7 @@
 "use client";
-let counter = 0;
 
 import Link from "next/link";
+import { useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,51 +13,135 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useEffect, useState } from "react";
+import { UserService } from "@/service/userService";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+type FormData = {
+  username: string;
+  password: string;
+};
 
 export default function LoginForm() {
-  const [count, setCount] = useState("");
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setError,
+    reset,
+  } = useForm<FormData>();
 
-  console.log("counting re-renders", (counter += 1));
+  const userService = new UserService();
+
+  const [isLoading, setIsLoading] = useState(false);
+
+  const router = useRouter();
+
+  const onSubmit = async (data: FormData) => {
+    console.log("Form submitted:", data);
+
+    setIsLoading(true);
+
+    try {
+      const response = await userService.loginUser(data);
+
+      toast.success("Your account has been created successfully.");
+
+      reset();
+      console.log("Registration successful:", response);
+
+      router.push("/");
+    } catch (error: any) {
+      console.error("Error during registration:", error);
+
+      if (error.response) {
+        const { status, data } = error.response;
+
+        if (status === 409) {
+          if (data.message.includes("Email already exists")) {
+            setError("username", {
+              type: "manual",
+              message: "This email is already registered.",
+            });
+
+            toast.error("This email is already registered.");
+          } else if (data.message.includes("Username already exists")) {
+            setError("username", {
+              type: "manual",
+              message: "This username is already taken.",
+            });
+
+            toast.error("This username is already taken.");
+          } else {
+            toast.error(data.message || "A conflict occurred.");
+          }
+        } else {
+          toast.error(data.message || "An error occurred. Please try again.");
+        }
+      } else if (error.request) {
+        toast.error(
+          "Unable to connect to the server. Please check your internet connection."
+        );
+      } else {
+        toast.error("An unexpected error occurred. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen">
       <div className="flex items-center min-h-[inherit] py-5">
         <Card className="mx-auto max-w-lg w-full">
           <CardHeader>
-            <CardTitle className="text-xl">Log in </CardTitle>
+            <CardTitle className="text-xl">Log in</CardTitle>
             <CardDescription>
               Enter your information to start chatting.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="username">Username</Label>
                 <Input
                   id="username"
-                  type="username"
-                  autoComplete="off"
-                  placeholder="Enter your username OR email "
-                  required
+                  type="text"
+                  placeholder="Enter your username OR email"
+                  {...register("username", {
+                    required: "Username is required",
+                  })}
                 />
+                {errors.username && (
+                  <span className="text-red-500 text-sm">
+                    {errors.username.message}
+                  </span>
+                )}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
                   type="password"
-                  autoComplete="new-password"
                   placeholder="Enter your password"
-                  onChange={(e) => setCount(e.target.value)}
+                  {...register("password", {
+                    required: "Password is required",
+                  })}
                 />
+                {errors.password && (
+                  <span className="text-red-500 text-sm">
+                    {errors.password.message}
+                  </span>
+                )}
               </div>
               <Button type="submit" className="w-full">
-                Create an account
+                Log in
               </Button>
-            </div>
+            </form>
             <div className="mt-4 text-center text-sm">
-              Don't haven an account?{" "}
+              Don't have an account?{" "}
               <Link href="/register" className="underline">
                 Sign up
               </Link>

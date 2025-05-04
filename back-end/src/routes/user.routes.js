@@ -18,7 +18,7 @@ const router = express.Router();
 router.route("/register").post(userRegisterValidator(), validate, registerUser);
 router
   .route("/login")
-  .get(userLoginValidator(), validate, login);
+  .post(userLoginValidator(), validate, login);
 router.route("/getAllUsers").get(verifyJWT, getallUsers);
 router.route("/check-username").get(checkUserNameAvailability);
 

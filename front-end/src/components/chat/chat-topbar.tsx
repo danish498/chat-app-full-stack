@@ -13,7 +13,7 @@ interface ChatTopbarProps {
     export const TopbarIcons = [{ icon: Phone }, { icon: Video }, { icon: Info }];
 
 
-export default function ChatTopbar({selectedUser}: ChatTopbarProps) {
+export default function ChatTopbar({selectedUser}: any) {
   return (
     <div className="w-full h-20 flex p-4 justify-between items-center">
         <div className="flex items-center gap-2">

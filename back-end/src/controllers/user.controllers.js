@@ -18,16 +18,22 @@ const User = db.User;
 const registerUser = asyncHandler(async (req, res, next) => {
   const { email, password, first_name, last_name, username, image } = req.body;
 
-  console.log('testtttt', email)
+  const existingEmail = await User.findOne({
+    where: { email: email },
+  });
 
+  const existingUser = await User.findOne({
+    where: { username: username },
+  });
 
+  if (existingEmail) {
+    logger.error("User with this email already exists");
+    throw new ApiError(409, "Email already exists", []);
+  }
 
-  console.log("check the email over here", color.america(email));
-
-  const existingUser = await User.findOne({ where: { email: email } });
   if (existingUser) {
-    logger.error("User with email or username already exists");
-    throw new ApiError(409, "User with email or username already exists", []);
+    logger.error("User with this username already exists");
+    throw new ApiError(409, "Username already exists", []);
   }
 
   const hashedPassword = await bcryptUtil.createHash(password);
@@ -84,6 +90,7 @@ const checkUserNameAvailability = asyncHandler(async (req, res, next) => {
   const existingUser = await User.findOne({
     where: { username: username },
   });
+  console.log("🚀 ~ checkUserNameAvailability ~ existingUser:", existingUser)
   if (existingUser) {
     const suggestedUser = await generateUniqueSuggestedNames(username);
     return res
