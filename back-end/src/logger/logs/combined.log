@@ -1890,3 +1890,20 @@
 [22 Apr, 2025 - 10:09:08:98] [35mhttp[39m: [35m::ffff:172.19.0.1 OPTIONS /api/v1/chat 204 - 0.195 ms[39m
 [22 Apr, 2025 - 10:09:08:98] [35mhttp[39m: [35m::ffff:172.19.0.1 GET /api/v1/getAllUsers 304 - 36.871 ms[39m
 [22 Apr, 2025 - 10:09:08:98] [35mhttp[39m: [35m::ffff:172.19.0.1 GET /api/v1/chat 304 - 35.042 ms[39m
+[04 May, 2025 - 18:25:31:2531] [35mhttp[39m: [35m::ffff:172.19.0.1 POST /api/v1/register 200 - 161.406 ms[39m
+[07 May, 2025 - 10:12:43:1243] [35mhttp[39m: [35m::ffff:172.19.0.1 OPTIONS /api/v1/chat 204 - 3.076 ms[39m
+[07 May, 2025 - 10:12:43:1243] [35mhttp[39m: [35m::ffff:172.19.0.1 OPTIONS /api/v1/getAllUsers 204 - 0.574 ms[39m
+[07 May, 2025 - 10:12:43:1243] [35mhttp[39m: [35m::ffff:172.19.0.1 GET /api/v1/chat 401 - 17.582 ms[39m
+[07 May, 2025 - 10:12:43:1243] [35mhttp[39m: [35m::ffff:172.19.0.1 GET /api/v1/getAllUsers 401 - 4.081 ms[39m
+[06 Jul, 2025 - 15:40:06:406] [35mhttp[39m: [35m::ffff:172.19.0.1 GET /api/v1/chat 401 - 6.002 ms[39m
+[06 Jul, 2025 - 15:40:18:4018] [31merror[39m: [31mIncorrect password[39m
+[06 Jul, 2025 - 15:40:18:4018] [35mhttp[39m: [35m::ffff:172.19.0.1 POST /api/v1/login 409 - 96.680 ms[39m
+[06 Jul, 2025 - 15:40:23:4023] [35mhttp[39m: [35m::ffff:172.19.0.1 GET /api/v1/getAllUsers 401 - 1.497 ms[39m
+[06 Jul, 2025 - 15:40:38:4038] [31merror[39m: [31mUser with this email already exists[39m
+[06 Jul, 2025 - 15:40:38:4038] [35mhttp[39m: [35m::ffff:172.19.0.1 POST /api/v1/register 409 - 9.836 ms[39m
+[06 Jul, 2025 - 15:40:44:4044] [31merror[39m: [31mUser with this username already exists[39m
+[06 Jul, 2025 - 15:40:44:4044] [35mhttp[39m: [35m::ffff:172.19.0.1 POST /api/v1/register 409 - 4.696 ms[39m
+[06 Jul, 2025 - 15:40:48:4048] [31merror[39m: [31mUser with this username already exists[39m
+[06 Jul, 2025 - 15:40:48:4048] [35mhttp[39m: [35m::ffff:172.19.0.1 POST /api/v1/register 409 - 4.596 ms[39m
+[06 Jul, 2025 - 15:41:00:410] [35mhttp[39m: [35m::ffff:172.19.0.1 POST /api/v1/register 200 - 80.864 ms[39m
+[06 Jul, 2025 - 15:47:11:4711] [35mhttp[39m: [35m::ffff:172.19.0.1 GET /api/v1/getAllUsers 200 - 6.617 ms[39m
