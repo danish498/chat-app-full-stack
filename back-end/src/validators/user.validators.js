@@ -63,7 +63,7 @@ const { userSchema } = require("./schema/user.schema.js");
 const _ = require("lodash");
 
 const validateUser = (req, res, next) => {
-  console.log(req.body);
+   
   const { error } = userSchema.validate(req.body, { abortEarly: false });
   if (error) {
     // Use res.status().json() to set status and send JSON response

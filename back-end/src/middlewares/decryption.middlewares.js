@@ -20,7 +20,7 @@ exports.apiDecryption = (req, res, next) => {
         return res.status(401).send(response);
       }
       req.body = JSON.parse(encryptionhelper.decrypt(encodedString));
-      console.log("body decripted:", req.body);
+       
     } else if (!_.isEmpty(req.query)) {
       console.log(
         "query encripted:",
@@ -37,12 +37,12 @@ exports.apiDecryption = (req, res, next) => {
         return res.status(401).send(response);
       }
       req.query = JSON.parse(encryptionhelper.decrypt(encodedString));
-      console.log("query decripted:", req.query);
+       
     }
 
     next();
   } catch (error) {
-    console.log(error);
+     
     // Encrypt the entire object
     const response = {
       response_temp: { status: false, message: "Something went wrong!" },

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TSignUpSchema, signUpSchema } from "@/lib/shema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import React from "react";
@@ -20,12 +20,17 @@ import { UserService } from "@/service/userService";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useRouter } from "next/navigation";
+import { isAuthenticated } from "@/lib/auth";
+import { useSocket } from "@/context/SocketContext";
 
 export default function SignUpForm() {
   const userService = new UserService();
+  const { initializeSocket } = useSocket();
   const [isLoading, setIsLoading] = useState(false);
 
-  const router = useRouter(); 
+  const router = useRouter();
+
+  // Check if user is already authenticated
 
   const {
     register,
@@ -46,7 +51,15 @@ export default function SignUpForm() {
       toast.success("Your account has been created successfully.");
 
       reset();
-      console.log("Registration successful:", response);
+       
+
+      // Initialize socket connection after successful registration
+      const userData = response.data.user;
+      if (userData?.user_id || userData?.id) {
+        const userId = userData.user_id || userData.id;
+         
+        initializeSocket(userId.toString());
+      }
 
       router.push("/");
     } catch (error: any) {

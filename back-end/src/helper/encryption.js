@@ -94,7 +94,7 @@ Encryption.encrypt = (str) => {
     });
     return Buffer.from(encrypted.toString(), "utf-8").toString("base64");
   } catch (e) {
-    console.log("Something has gone wrong!", e);
+     
     return false;
   }
 };
@@ -116,7 +116,7 @@ Encryption.decrypt = (encrypted) => {
     );
     return decrypted.toString(CryptoJS.enc.Utf8);
   } catch (e) {
-    console.log("Something has gone wrong!", e);
+     
     return false;
   }
 };
@@ -144,7 +144,7 @@ Encryption.cipherEncrypt = (encrypted) => {
       return "";
     }
   } catch (error) {
-    console.log("Something has gone wrong!", error);
+     
     return false;
   }
 };
@@ -171,7 +171,7 @@ Encryption.cipherDecrypt = (encrypted) => {
       return "";
     }
   } catch (error) {
-    console.log("Something has gone wrong!", error);
+     
     return false;
   }
 };

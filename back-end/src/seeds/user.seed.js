@@ -74,7 +74,7 @@ const seedUsers = asyncHandler(async (req, res, next) => {
     json,
     "utf8",
     (err) => {
-      console.log("Error while writing the credentials", err);
+       
     }
   );
 

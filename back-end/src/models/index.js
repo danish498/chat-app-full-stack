@@ -1,6 +1,7 @@
 const Sequelize = require("sequelize");
 const DataTypes = require("sequelize");
 const colors = require("colors");
+const { logger } = require("../logger/winston.logger.js");
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,
@@ -17,7 +18,7 @@ const sequelize = new Sequelize(
 sequelize
   .authenticate()
   .then(() => {
-    console.log(colors.blue("Models synchronized successfully."));
+    logger.info(colors.blue("Models synchronized successfully."));
   })
   .catch((err) => {
     console.error("Unable to connect to the database:", err);
@@ -69,7 +70,7 @@ db.Message.belongsTo(db.User, { foreignKey: "sender_id", as: "sender" });
 (async () => {
   try {
     await sequelize.sync({ force: false }); // Set force to true for development, false for production
-    console.log("Models synchronized successfully....");
+    logger.info("Models synchronized successfully....");
   } catch (error) {
     console.error("Unable to synchronize models with the database:", error);
   }

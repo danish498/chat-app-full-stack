@@ -1,5 +1,4 @@
 import apiClient from "@/lib/apiClient";
-// import { Message } from "@/app/data";
 import { AxiosResponse } from "axios";
 
 export class ChatService {

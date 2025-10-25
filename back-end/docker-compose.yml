@@ -6,7 +6,8 @@ services:
     ports:
       - "9090:9090"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       DB_HOST: db
       DB_USER: root
@@ -14,8 +15,8 @@ services:
       DB_NAME: chatt-app
     volumes:
       - .:/src
-      - /src/node_modules  # avoid overwriting container's node_modules
-    command: npm start  # ensure nodemon is used instead of default CMD
+      - /src/node_modules # avoid overwriting container's node_modules
+    command: npm start # ensure nodemon is used instead of default CMD
 
   db:
     image: mysql:8
@@ -25,6 +26,14 @@ services:
       MYSQL_DATABASE: chatt-app
     ports:
       - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql  
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
@@ -34,3 +43,10 @@ services:
     environment:
       PMA_HOST: db
       MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    depends_on:
+      db:
+        condition: service_healthy
+
+# Define named volume for MySQL data persistence
+volumes:
+  mysql_data:

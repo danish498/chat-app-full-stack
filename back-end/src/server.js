@@ -65,7 +65,7 @@ app.get("/api/v1/seed/generated-credentials", getGeneratedCredentials);
 // );
 
 // sequelize.sync().then(() => {
-//   console.log("Database synced");
+//    
 // });
 
 app.use(errorHandler);

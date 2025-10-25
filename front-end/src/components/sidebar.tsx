@@ -7,6 +7,7 @@ import {
   Users,
   EllipsisVertical,
   X,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -45,6 +46,9 @@ import { Popover, PopoverTrigger } from "@radix-ui/react-popover";
 import { PopoverContent } from "./ui/popover";
 import { useEffect, useState } from "react";
 import { UserService } from "@/service/userService";
+import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
+import { useSocket } from "@/context/SocketContext";
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -66,11 +70,11 @@ export function Sidebar({
   setSelectedUser,
   handleChatInitiate,
   isSearchUserOpen,
-  setIsSearchUserOpen
+  setIsSearchUserOpen,
 }: any) {
-  console.log("checkthelogssss", links);
-
   const userService = new UserService();
+  const router = useRouter();
+  const { isUserOnline } = useSocket();
 
   const [getAllUsers, setGetAllUsers] = useState([]);
 
@@ -83,6 +87,20 @@ export function Sidebar({
     };
     fetchAllUsers();
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      await userService.logoutUser();
+      toast.success("Logged out successfully!");
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Even if the API call fails, clear local storage and redirect
+      localStorage.removeItem("token");
+      document.cookie = "token=; path=/; max-age=0";
+      router.push("/login");
+    }
+  };
 
   return (
     <div
@@ -105,7 +123,7 @@ export function Sidebar({
             <Dialog>
               {/* <Button variant="outline">Edit Profile</Button> */}
               <TooltipProvider>
-                <Tooltip content="tooltip content">
+                <Tooltip>
                   <TooltipTrigger asChild>
                     <DialogTrigger asChild>
                       <Users />
@@ -144,7 +162,7 @@ export function Sidebar({
                       <Badge>Daniyal</Badge>
                     </div>
 
-                    {links.map((link, index) => (
+                    {links.map((link: any, index: any) => (
                       <nav
                         className="col-span-4  group-[[data-collapsed=true]]:justify-center group-[[data-collapsed=true]]:px-2"
                         key={index}
@@ -187,19 +205,23 @@ export function Sidebar({
                 <EllipsisVertical />
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                {/* <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                  <DropdownMenuSeparator /> */}
                 <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Billing</DropdownMenuItem>
-                <DropdownMenuItem>Team</DropdownMenuItem>
-                <DropdownMenuItem>Subscription</DropdownMenuItem>
+                <DropdownMenuItem>Settings</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-red-600 focus:text-red-600 cursor-pointer"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </Link>
         </div>
       </div>
 
-      <Popover open= {isSearchUserOpen}  onOpenChange={setIsSearchUserOpen} >
+      <Popover open={isSearchUserOpen} onOpenChange={setIsSearchUserOpen}>
         <PopoverTrigger>
           <Input placeholder="Search the user..." />
         </PopoverTrigger>
@@ -232,8 +254,12 @@ export function Sidebar({
         </TabsList>
         <TabsContent value="all">
           <nav className="space-y-1 px-2 group-[[data-collapsed=true]]:justify-center group-[[data-collapsed=true]]:px-2">
-            {links.map((link, index) => (
-              <>
+            {links.map((link: any, index: any) => {
+              const isOnline = link.recipientUsers?.user_id
+                ? isUserOnline(link.recipientUsers.user_id.toString())
+                : false;
+
+              return (
                 <button
                   key={index}
                   onClick={() => handleChatClick(link)}
@@ -244,15 +270,21 @@ export function Sidebar({
                     "justify-start gap-4 flex items-center w-full h-auto text-left py-2 px-3 shadow-none bg-white border border-transparent hover:bg-slate-100"
                   )}
                 >
-                  <Avatar className="flex justify-center items-center">
-                    <AvatarImage
-                      src={link.avatar}
-                      alt={link.avatar}
-                      width={6}
-                      height={6}
-                      className="w-10 h-10"
-                    />
-                  </Avatar>
+                  <div className="relative">
+                    <Avatar className="flex justify-center items-center">
+                      <AvatarImage
+                        src={link.avatar}
+                        alt={link.avatar}
+                        width={6}
+                        height={6}
+                        className="w-10 h-10"
+                      />
+                    </Avatar>
+                    {/* Online status indicator */}
+                    {isOnline && (
+                      <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white"></div>
+                    )}
+                  </div>
                   <div className="max-w-[calc(100%-56px)]">
                     <span className="block text-black font-medium text-sm">
                       {link.name}
@@ -269,8 +301,8 @@ export function Sidebar({
                     )}
                   </div>
                 </button>
-              </>
-            ))}
+              );
+            })}
           </nav>
         </TabsContent>
         <TabsContent value="group">No Group Chat</TabsContent>

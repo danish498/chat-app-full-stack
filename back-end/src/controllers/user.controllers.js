@@ -62,16 +62,26 @@ const registerUser = asyncHandler(async (req, res, next) => {
 });
 
 const getallUsers = asyncHandler(async (req, res) => {
+   
+
   const { username, email } = req.query;
 
-  console.log("check the username", username);
+  const currentUserId = req.user.user_id;
 
   let whereClause = {};
 
   if (username || email) {
     whereClause = {
-      [Op.and]: [{ email: { [Op.like]: `%${email}%` } }],
+      [Op.and]: [],
     };
+
+    if (email) {
+      whereClause[Op.and].push({ email: { [Op.like]: `%${email}%` } });
+    }
+
+    if (username) {
+      whereClause[Op.and].push({ username: { [Op.like]: `%${username}%` } });
+    }
   }
 
   const allUsers = await User.findAll({
@@ -79,9 +89,23 @@ const getallUsers = asyncHandler(async (req, res) => {
     where: whereClause,
   });
 
+  const modifiedUsers = allUsers.map((user) => {
+    const userData = user.toJSON();
+
+     
+    
+
+    if (userData.user_id === currentUserId) {
+      userData.username = "me";
+    }
+    return userData;
+  });
+
   return res
     .status(200)
-    .json(new ApiResponse(200, allUsers, "Users retrieved successfully..."));
+    .json(
+      new ApiResponse(200, modifiedUsers, "Users retrieved successfully...")
+    );
 });
 
 const checkUserNameAvailability = asyncHandler(async (req, res, next) => {
@@ -90,7 +114,7 @@ const checkUserNameAvailability = asyncHandler(async (req, res, next) => {
   const existingUser = await User.findOne({
     where: { username: username },
   });
-  console.log("🚀 ~ checkUserNameAvailability ~ existingUser:", existingUser)
+   
   if (existingUser) {
     const suggestedUser = await generateUniqueSuggestedNames(username);
     return res

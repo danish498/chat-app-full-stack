@@ -13,7 +13,6 @@ const verifyJWT = asyncHandler(async (req, res, next) => {
     req.cookies?.accessToken ||
     req.header("Authorization")?.replace("Bearer ", "");
 
-
   if (!token) {
     throw new ApiError(401, "Unauthorized request");
   }
@@ -21,8 +20,6 @@ const verifyJWT = asyncHandler(async (req, res, next) => {
   try {
     // Verify and decode the token
     const decoded = jwtUtil.verifyToken(token);
-
-    console.log(color.bold(decoded.userId));
 
     // Verify user data consistency using Sequelize (optional)
     const user = await User.findByPk(decoded.userId); // Adapt using appropriate query methods

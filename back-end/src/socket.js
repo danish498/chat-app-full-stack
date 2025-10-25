@@ -1,5 +1,6 @@
 // In a separate file called socket.js
 const socketIO = require("socket.io");
+const { logger } = require("./logger/winston.logger");
 let io;
 
 // Map to store online users - maps userId to socketId
@@ -14,19 +15,23 @@ const initializeSocket = (server) => {
   });
 
   io.on("connection", (socket) => {
-    console.log("New client connected", socket.id);
-
     // When a user goes online, store their userId and socketId
     socket.on("userOnline", (userId) => {
       onlineUsers.set(userId, socket.id);
-      console.log(`User ${userId} is online with socket ${socket.id}`);
+
+      // Send the list of currently online users to the newly connected user
+      const onlineUsersList = Array.from(onlineUsers.keys());
+      socket.emit("onlineUsers", onlineUsersList);
+
       // Notify other users that this user is online
-      io.emit("userStatusUpdate", { userId, status: "online" });
+      socket.broadcast.emit("userStatusUpdate", { userId, status: "online" });
     });
 
     // Handle chat messages
     socket.on("chatMessage", (data) => {
       const { recipientId, message, chat_id } = data;
+
+      logger.info("message form send user", message);
       // Emit to specific user if they're online
       if (onlineUsers.has(recipientId)) {
         io.to(onlineUsers.get(recipientId)).emit("newMessage", message);
@@ -46,11 +51,10 @@ const initializeSocket = (server) => {
         if (socketId === socket.id) {
           onlineUsers.delete(userId);
           io.emit("userStatusUpdate", { userId, status: "offline" });
-          console.log(`User ${userId} disconnected`);
+
           break;
         }
       }
-      console.log("Client disconnected");
     });
   });
 

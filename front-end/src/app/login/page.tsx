@@ -16,8 +16,10 @@ import { Label } from "@/components/ui/label";
 import { UserService } from "@/service/userService";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { isAuthenticated } from "@/lib/auth";
+import { useSocket } from "@/context/SocketContext";
 
 type FormData = {
   username: string;
@@ -34,24 +36,40 @@ export default function LoginForm() {
   } = useForm<FormData>();
 
   const userService = new UserService();
+  const { initializeSocket } = useSocket();
 
   const [isLoading, setIsLoading] = useState(false);
 
   const router = useRouter();
 
+  // Check if user is already authenticated
+  useEffect(() => {
+    if (isAuthenticated()) {
+      router.push("/");
+    }
+  }, [router]);
+
   const onSubmit = async (data: FormData) => {
-    console.log("Form submitted:", data);
+     
 
     setIsLoading(true);
 
     try {
       const response = await userService.loginUser(data);
 
-      toast.success("Your account has been created successfully.");
+      toast.success("Login successful!");
 
       reset();
-      console.log("Registration successful:", response);
-
+       
+      
+      // Initialize socket connection after successful login
+      const userData = response.data.user;
+      if (userData?.user_id || userData?.id) {
+        const userId = userData.user_id || userData.id;
+         
+        initializeSocket(userId.toString());
+      }
+      
       router.push("/");
     } catch (error: any) {
       console.error("Error during registration:", error);

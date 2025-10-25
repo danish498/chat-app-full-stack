@@ -8,7 +8,7 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import Link from "next/link";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { buttonVariants } from "../ui/button";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
@@ -16,23 +16,63 @@ import { Message, loggedInUserData } from "@/app/data";
 import { Textarea } from "../ui/textarea";
 import { EmojiPicker } from "../emoji-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { useSocket } from "@/context/SocketContext";
 
 interface ChatBottombarProps {
   sendMessage: (newMessage: Message) => void;
   isMobile: boolean;
+  selectedUser?: any;
 }
 
 export const BottombarIcons = [{ icon: FileImage }, { icon: Paperclip }];
 
 export default function ChatBottombar({
-  sendMessage, isMobile,
+  sendMessage, 
+  isMobile,
+  selectedUser,
 }: ChatBottombarProps) {
   const [message, setMessage] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { sendTypingStatus } = useSocket();
 
   const handleInputChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessage(event.target.value);
+
+    // Send typing indicator
+    if (selectedUser?.chatId) {
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          const userId = user.user_id || user.id;
+          
+          // Send typing = true
+          sendTypingStatus(selectedUser.chatId, userId.toString(), true);
+
+          // Clear previous timeout
+          if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+          }
+
+          // Set timeout to send typing = false after 2 seconds
+          typingTimeoutRef.current = setTimeout(() => {
+            sendTypingStatus(selectedUser.chatId, userId.toString(), false);
+          }, 2000);
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
+    }
   };
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleThumbsUp = () => {
     const newMessage: Message = {

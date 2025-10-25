@@ -16,8 +16,6 @@ const User = db.User;
  */
 
 const createOnOneChat = asyncHandler(async (req, res) => {
-  console.log("check the response over here", req.user.user_id);
-
   const loggedInUser = req.user.user_id;
 
   const { recipient_id, type = "individual" } = req.body;
@@ -148,7 +146,7 @@ const createOnOneChat = asyncHandler(async (req, res) => {
       );
   }
 
-  // console.log('check the response over here ifChatExist ifChatExist', ifChatExist)
+  //
 });
 
 /**
@@ -159,7 +157,6 @@ const createOnOneChat = asyncHandler(async (req, res) => {
 
 const fetchChats = asyncHandler(async (req, res, next) => {
   const loggedInUser = req.user.user_id;
-  console.log("🚀 ~ fetchChats ~ loggedInUser:", loggedInUser);
 
   try {
     const chats = await Chat.findAll({
