@@ -5741,3 +5741,10 @@
 [25 Oct, 2025 - 16:20:49:2049] [34minfo[39m: [34mModels synchronized successfully....[39m
 [25 Oct, 2025 - 19:37:24:3724] [35mhttp[39m: [35m::ffff:172.18.0.1 OPTIONS /api/v1/getAllUsers 204 - 1.344 ms[39m
 [25 Oct, 2025 - 19:37:24:3724] [35mhttp[39m: [35m::ffff:172.18.0.1 GET /api/v1/getAllUsers 304 - 29.014 ms[39m
+[25 Oct, 2025 - 19:58:27:5827] [34minfo[39m: [34mServer is running on port 9090[39m
+[25 Oct, 2025 - 19:58:28:5828] [34minfo[39m: [34mModels synchronized successfully.[39m
+[25 Oct, 2025 - 19:58:28:5828] [34minfo[39m: [34mModels synchronized successfully....[39m
+[25 Oct, 2025 - 19:58:29:5829] [35mhttp[39m: [35m::ffff:172.18.0.1 OPTIONS /api/v1/getAllUsers 204 - 1.158 ms[39m
+[25 Oct, 2025 - 19:58:29:5829] [35mhttp[39m: [35m::ffff:172.18.0.1 OPTIONS /api/v1/chat 204 - 0.239 ms[39m
+[25 Oct, 2025 - 19:58:29:5829] [35mhttp[39m: [35m::ffff:172.18.0.1 GET /api/v1/getAllUsers 304 - 23.457 ms[39m
+[25 Oct, 2025 - 19:58:29:5829] [35mhttp[39m: [35m::ffff:172.18.0.1 GET /api/v1/chat 304 - 22.159 ms[39m
