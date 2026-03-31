@@ -1,0 +1,1 @@
+ALTER TABLE "blocked_users" DROP COLUMN "id";
