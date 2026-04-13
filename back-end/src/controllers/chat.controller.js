@@ -2,10 +2,22 @@ import { db } from "../db/db.js";
 import { chats, chatParticipants, users, messages } from "../db/schema.js";
 import { eq, and, or, isNull, inArray, desc } from "drizzle-orm";
 
+import { Buffer } from "buffer";
+
 export const getChats = async (req, res, next) => {
   try {
     const userId = req.user.id;
+    const { cursor, limit = 10 } = req.query;
 
+    // Decode cursor
+    let decodedCursor = null;
+    if (cursor) {
+      decodedCursor = JSON.parse(
+        Buffer.from(cursor, "base64").toString("utf-8"),
+      );
+    }
+
+    // Step 1: get user's chatIds
     const userChatRows = await db
       .select({ chatId: chatParticipants.chatId })
       .from(chatParticipants)
@@ -22,12 +34,10 @@ export const getChats = async (req, res, next) => {
     const chatIds = userChatRows.map((row) => row.chatId);
 
     if (chatIds.length === 0) {
-      return res.json({
-        success: true,
-        data: [],
-      });
+      return res.json({ success: true, data: [], nextCursor: null });
     }
 
+    // Step 2: main query with pagination
     const rows = await db
       .select({
         chatId: chats.id,
@@ -38,11 +48,26 @@ export const getChats = async (req, res, next) => {
 
         participantUserId: chatParticipants.userId,
         role: chatParticipants.role,
+
+        userName: users.username,
+        displayName: users.displayName,
+        userAvatar: users.avatarUrl,
       })
       .from(chats)
       .innerJoin(chatParticipants, eq(chatParticipants.chatId, chats.id))
-      .where(inArray(chats.id, chatIds));
+      .innerJoin(users, eq(users.id, chatParticipants.userId))
+      .where(
+        and(
+          inArray(chats.id, chatIds),
+          decodedCursor
+            ? lt(chats.createdAt, decodedCursor.createdAt)
+            : undefined,
+        ),
+      )
+      .orderBy(desc(chats.createdAt))
+      .limit(Number(limit) + 1); // +1 for nextCursor
 
+    // Step 3: group chats
     const chatMap = new Map();
 
     for (const row of rows) {
@@ -54,18 +79,50 @@ export const getChats = async (req, res, next) => {
           avatarUrl: row.avatarUrl,
           createdAt: row.createdAt,
           participants: [],
+          otherUser: null, // 🔥 important
         });
       }
 
-      chatMap.get(row.chatId).participants.push({
+      const chat = chatMap.get(row.chatId);
+
+      chat.participants.push({
         userId: row.participantUserId,
         role: row.role,
       });
+
+      // ✅ Detect other user in direct chat
+      if (
+        row.type === "direct" &&
+        row.participantUserId !== userId
+      ) {
+        chat.otherUser = {
+          id: row.participantUserId,
+          username: row.userName,
+          displayName: row.displayName,
+          avatarUrl: row.userAvatar,
+        };
+      }
+    }
+
+    let chatsArray = Array.from(chatMap.values());
+
+    // Step 4: handle pagination
+    let nextCursor = null;
+
+    if (chatsArray.length > Number(limit)) {
+      const nextItem = chatsArray.pop();
+
+      nextCursor = Buffer.from(
+        JSON.stringify({
+          createdAt: nextItem.createdAt,
+        }),
+      ).toString("base64");
     }
 
     return res.json({
       success: true,
-      data: Array.from(chatMap.values()),
+      data: chatsArray,
+      nextCursor,
     });
   } catch (error) {
     next(error);
@@ -218,7 +275,8 @@ export const createChat = async (req, res, next) => {
           return res.json({
             success: true,
             message: "Chat already exists",
-            data: { id: chatId },
+            isExistingChat: true,
+            data: { id: chatId , type: "EXISTING_CHAT",},
           });
         }
       }
@@ -248,6 +306,14 @@ export const createChat = async (req, res, next) => {
       return newChat;
     });
 
+    // Notify all participants about the new chat
+    uniqueParticipants.forEach((uid) => {
+      req.app.locals.broadcastToUser(uid, {
+        type: req.app.locals.EVENTS.ROOM.CREATE,
+        data: result,
+      });
+    });
+
     return res.status(201).json({
       success: true,
       data: result,
@@ -275,6 +341,13 @@ export const updateChat = async (req, res, next) => {
       });
     }
 
+    // Broadcast room update event
+    req.app.locals.broadcastMessageUpdate(
+      id,
+      req.app.locals.EVENTS.ROOM.UPDATE,
+      updatedChat,
+    );
+
     res.json({
       success: true,
       data: updatedChat,
@@ -299,9 +372,123 @@ export const deleteChat = async (req, res, next) => {
       });
     }
 
+    // Broadcast room delete event
+    req.app.locals.broadcastMessageUpdate(
+      id,
+      req.app.locals.EVENTS.ROOM.DELETE,
+      { id },
+    );
+
     res.json({
       success: true,
       message: "Chat deleted successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const addMember = async (req, res, next) => {
+  try {
+    const { id: chatId } = req.params;
+    const { userId, role = "member" } = req.body;
+    const currentUserId = req.user.id;
+
+    // 1. Check if chat exists and is a group chat
+    const [chat] = await db.select().from(chats).where(eq(chats.id, chatId));
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: "Chat not found",
+      });
+    }
+
+    if (chat.type !== "group") {
+      return res.status(400).json({
+        success: false,
+        message: "Members can only be added to group chats",
+      });
+    }
+
+    // 2. Check if current user is an admin in this chat
+    const [currentUserParticipant] = await db
+      .select()
+      .from(chatParticipants)
+      .where(
+        and(
+          eq(chatParticipants.chatId, chatId),
+          eq(chatParticipants.userId, currentUserId),
+        ),
+      );
+
+    if (!currentUserParticipant || currentUserParticipant.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can add members",
+      });
+    }
+
+    // 3. Check if user to be added exists
+    const [userToAdd] = await db.select().from(users).where(eq(users.id, userId));
+    if (!userToAdd) {
+      return res.status(404).json({
+        success: false,
+        message: "User to add not found",
+      });
+    }
+
+    // 4. Check if user is already a member
+    const [existingParticipant] = await db
+      .select()
+      .from(chatParticipants)
+      .where(
+        and(
+          eq(chatParticipants.chatId, chatId),
+          eq(chatParticipants.userId, userId),
+        ),
+      );
+
+    if (existingParticipant) {
+      return res.status(400).json({
+        success: false,
+        message: "User is already a member of this chat",
+      });
+    }
+
+    // 5. Add user to chat
+    const [newParticipant] = await db
+      .insert(chatParticipants)
+      .values({
+        chatId,
+        userId,
+        role,
+      })
+      .returning();
+
+    // 6. Broadcast notification
+    req.app.locals.broadcastToUser(userId, {
+      type: req.app.locals.EVENTS.ROOM.CREATE, // New chat for that user
+      data: chat,
+    });
+
+    req.app.locals.broadcastMessageUpdate(
+      chatId,
+      req.app.locals.EVENTS.ROOM.MEMBER_ADD,
+      {
+        chatId,
+        user: {
+          id: userToAdd.id,
+          username: userToAdd.username,
+          displayName: userToAdd.displayName,
+          avatarUrl: userToAdd.avatarUrl,
+          role: newParticipant.role,
+        },
+      }
+    );
+
+    return res.status(201).json({
+      success: true,
+      data: newParticipant,
     });
   } catch (error) {
     next(error);

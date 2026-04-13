@@ -16,4 +16,13 @@ export const chatSchemas = {
       id: uuidSchema,
     }),
   }),
+  addMember: z.object({
+    params: z.object({
+      id: uuidSchema,
+    }),
+    body: z.object({
+      userId: uuidSchema,
+      role: z.enum(['member', 'admin']).default('member'),
+    }),
+  }),
 };

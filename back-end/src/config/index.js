@@ -9,7 +9,7 @@ export const config = {
   jwt: {
     accessSecret: process.env.ACCESS_TOKEN_SECRET || "your-access-token-secret-key",
     refreshSecret: process.env.REFRESH_TOKEN_SECRET || "your-refresh-token-secret-key",
-    accessExpiration: "15m", // 15 mins
+    accessExpiration: "50m", // 15 mins
     refreshExpiration: "7d", // 7 days
   },
   logger: {

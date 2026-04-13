@@ -22,6 +22,11 @@ export const userSchemas = {
       status: z.enum(['online', 'offline', 'away', 'busy']).optional(),
     }),
   }),
+  search: z.object({
+    query: z.object({
+      q: z.string().min(1).max(100),
+    }),
+  }),
   getById: z.object({
     params: z.object({
       id: uuidSchema,

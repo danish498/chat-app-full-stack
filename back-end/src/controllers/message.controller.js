@@ -1,6 +1,7 @@
 import { db } from "../db/db.js";
-import { chatParticipants, messages } from "../db/schema.js";
+import { chatParticipants, messages, chats } from "../db/schema.js";
 import { eq, desc, isNull, and, or, lt } from "drizzle-orm";
+import logger from "../utils/logger.js";
 
 // export const getMessagesByChatId = async (req, res, next) => {
 //   try {
@@ -67,7 +68,7 @@ export const getMessagesByChatId = async (req, res, next) => {
         ),
       )
       .orderBy(desc(messages.createdAt))
-      .limit(50);
+      .limit(10);
 
     if (cursor) {
       query = db
@@ -91,7 +92,7 @@ export const getMessagesByChatId = async (req, res, next) => {
           ),
         )
         .orderBy(desc(messages.createdAt))
-        .limit(50);
+        .limit(10);
     }
 
     const rows = await query;
@@ -110,7 +111,7 @@ export const getMessagesByChatId = async (req, res, next) => {
 
 export const sendMessage = async (req, res, next) => {
   try {
-    const { chatId, content, messageType, replyToId } = req.body;
+    const { chatId, content, messageType, replyToId, createdAt } = req.body;
 
     const senderId = req.user.id;
 
@@ -122,8 +123,34 @@ export const sendMessage = async (req, res, next) => {
         content,
         messageType,
         replyToId,
+        createdAt: createdAt ? new Date(createdAt) : undefined,
       })
       .returning();
+
+    // Fetch chat type to determine how to broadcast
+    const [chatInfo] = await db
+      .select({ type: chats.type })
+      .from(chats)
+      .where(eq(chats.id, chatId));
+
+    if (chatInfo?.type === "direct") {
+      // Find the other participant in this 1-on-1 chat
+      const participants = await db
+        .select({ userId: chatParticipants.userId })
+        .from(chatParticipants)
+        .where(eq(chatParticipants.chatId, chatId));
+
+      const otherUser = participants.find((p) => p.userId !== senderId);
+
+      console.log("Other user", participants);
+
+      if (otherUser) {
+        req.app.locals.broadcastNewMessage(otherUser.userId, newMessage);
+      }
+    } else {
+      // Broadcast to the whole group room (chatInfo?.type === "group")
+      req.app.locals.broadcastNewGroupMessage(chatId, newMessage);
+    }
 
     res.status(201).json({
       success: true,
@@ -143,7 +170,7 @@ export const deleteMessage = async (req, res, next) => {
       .update(messages)
       .set({ isDeleted: true, deletedAt: new Date() })
       .where(eq(messages.id, id))
-      .returning({ id: messages.id });
+      .returning({ id: messages.id, chatId: messages.chatId });
 
     if (!deletedMessage) {
       return res.status(404).json({
@@ -151,6 +178,13 @@ export const deleteMessage = async (req, res, next) => {
         error: { message: "Message not found" },
       });
     }
+
+    // Broadcast message delete event
+    req.app.locals.broadcastMessageUpdate(
+      deletedMessage.chatId,
+      req.app.locals.EVENTS.MESSAGING.DELETE,
+      { id: deletedMessage.id, chatId: deletedMessage.chatId },
+    );
 
     res.json({
       success: true,

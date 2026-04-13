@@ -20,6 +20,7 @@ export const users = pgTable('users', {
   avatarUrl: varchar('avatar_url', { length: 500 }),
   status: varchar('status', { length: 20 }).default('offline'),
   lastSeen: timestamp('last_seen', { withTimezone: true }),
+  publicKey: varchar('public_key', { length: 64 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
@@ -72,13 +73,17 @@ export const messages = pgTable('messages', {
   fileUrl: varchar('file_url', { length: 500 }),
   fileName: varchar('file_name', { length: 255 }),
   fileSize: integer('file_size'),
+  // sequence: integer('sequence').default(0),
   replyToId: uuid('reply_to_id').references(() => messages.id),
+  nonce: varchar('nonce', { length: 32 }),
+  isEncrypted: boolean('is_encrypted').default(false),
   isEdited: boolean('is_edited').default(false),
   editedAt: timestamp('edited_at', { withTimezone: true }),
   isDeleted: boolean('is_deleted').default(false),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+
 });
 
 /* ================= MESSAGE REACTIONS ================= */

@@ -1,24 +1,107 @@
 import bcrypt from 'bcrypt';
 import { db } from '../db/db.js';
 import { users } from '../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, ilike, or, gt, lt, asc, desc,and } from 'drizzle-orm';
 
 export const getUsers = async (req, res, next) => {
   try {
-    const allUsers = await db.select({
-      id: users.id,
-      username: users.username,
-      displayName: users.displayName,
-      email: users.email,
-      avatarUrl: users.avatarUrl,
-      status: users.status,
-      lastSeen: users.lastSeen,
-      createdAt: users.createdAt,
-    }).from(users);
+    const { cursor, limit = 20, direction = "forward" } = req.query;
+
+    const parsedLimit = Math.min(parseInt(limit) || 20, 100);
+
+    let whereCondition = undefined;
+
+    // ✅ Cursor handling
+    if (cursor) {
+      const decoded = JSON.parse(
+        Buffer.from(cursor, "base64").toString("utf-8")
+      );
+
+      const createdAt = new Date(decoded.createdAt); // IMPORTANT
+      const id = decoded.id;
+
+      const cursorFilter =
+        direction === "forward"
+          ? or(
+              gt(users.createdAt, createdAt),
+              and(
+                eq(users.createdAt, createdAt),
+                gt(users.id, id)
+              )
+            )
+          : or(
+              lt(users.createdAt, createdAt),
+              and(
+                eq(users.createdAt, createdAt),
+                lt(users.id, id)
+              )
+            );
+
+      whereCondition = cursorFilter;
+    }
+
+    let query = db
+      .select({
+        id: users.id,
+        username: users.username,
+        displayName: users.displayName,
+        email: users.email,
+        avatarUrl: users.avatarUrl,
+        status: users.status,
+        lastSeen: users.lastSeen,
+        createdAt: users.createdAt,
+      })
+      .from(users);
+
+    if (whereCondition) {
+      query = query.where(whereCondition);
+    }
+
+    query = query
+      .orderBy(
+        direction === "forward"
+          ? asc(users.createdAt)
+          : desc(users.createdAt),
+        direction === "forward"
+          ? asc(users.id)
+          : desc(users.id)
+      )
+      .limit(parsedLimit + 1);
+
+    const result = await query;
+
+    const hasMore = result.length > parsedLimit;
+    const usersData = hasMore ? result.slice(0, parsedLimit) : result;
+
+    if (direction === "backward") {
+      usersData.reverse();
+    }
+
+    const createCursor = (item) =>
+      Buffer.from(
+        JSON.stringify({
+          createdAt: item.createdAt,
+          id: item.id,
+        })
+      ).toString("base64");
+
+    let nextCursor = null;
+    let prevCursor = null;
+
+    if (usersData.length > 0) {
+      nextCursor = createCursor(usersData[usersData.length - 1]);
+      prevCursor = createCursor(usersData[0]);
+    }
 
     res.json({
       success: true,
-      data: allUsers,
+      data: usersData,
+      pagination: {
+        nextCursor: hasMore ? nextCursor : null,
+        prevCursor,
+        hasMore,
+        limit: parsedLimit,
+      },
     });
   } catch (error) {
     next(error);
@@ -119,6 +202,124 @@ export const updateUser = async (req, res, next) => {
     res.json({
       success: true,
       data: updatedUser,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const searchUsers = async (req, res, next) => {
+  try {
+    const { q, cursor, limit = 20, direction = "forward" } = req.query;
+
+    if (!q || q.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { message: "Search query is required" },
+      });
+    }
+
+    const searchQuery = `%${q.trim()}%`;
+    const parsedLimit = Math.min(parseInt(limit) || 20, 100);
+
+    // Base filter
+    let whereCondition = or(
+      ilike(users.username, searchQuery),
+      ilike(users.displayName, searchQuery),
+      ilike(users.email, searchQuery)
+    );
+
+    // Cursor handling (BASE64 + composite)
+    if (cursor) {
+      const decoded = JSON.parse(
+        Buffer.from(cursor, "base64").toString("utf-8")
+      );
+
+     
+const createdAt = new Date(decoded.createdAt); 
+const id = decoded.id;
+
+      const cursorFilter =
+        direction === "forward"
+          ? or(
+              gt(users.createdAt, createdAt),
+              and(
+                eq(users.createdAt, createdAt),
+                gt(users.id, id)
+              )
+            )
+          : or(
+              lt(users.createdAt, createdAt),
+              and(
+                eq(users.createdAt, createdAt),
+                lt(users.id, id)
+              )
+            );
+
+      whereCondition = and(whereCondition, cursorFilter);
+    }
+
+    let query = db
+      .select({
+        id: users.id,
+        username: users.username,
+        displayName: users.displayName,
+        email: users.email,
+        avatarUrl: users.avatarUrl,
+        status: users.status,
+        lastSeen: users.lastSeen,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(whereCondition)
+      .orderBy(
+        direction === "forward"
+          ? asc(users.createdAt)
+          : desc(users.createdAt),
+        direction === "forward"
+          ? asc(users.id)
+          : desc(users.id)
+      )
+      .limit(parsedLimit + 1);
+
+    const searchResults = await query;
+
+    const hasMore = searchResults.length > parsedLimit;
+    const results = hasMore
+      ? searchResults.slice(0, parsedLimit)
+      : searchResults;
+
+    // reverse for backward (so UI always gets ascending order)
+    if (direction === "backward") {
+      results.reverse();
+    }
+
+    // ✅ Create cursors
+    const createCursor = (item) =>
+      Buffer.from(
+        JSON.stringify({
+          createdAt: item.createdAt,
+          id: item.id,
+        })
+      ).toString("base64");
+
+    let nextCursor = null;
+    let prevCursor = null;
+
+    if (results.length > 0) {
+      nextCursor = createCursor(results[results.length - 1]);
+      prevCursor = createCursor(results[0]);
+    }
+
+    res.json({
+      success: true,
+      data: results,
+      pagination: {
+        nextCursor: hasMore ? nextCursor : null,
+        prevCursor,
+        hasMore,
+        limit: parsedLimit,
+      },
     });
   } catch (error) {
     next(error);
