@@ -1,6 +1,6 @@
 export const config = {
   port: Number(process.env.PORT) || 4545,
-  host: process.env.HOST || "localhost",
+  host: process.env.HOST || "0.0.0.0",
   cors: {
     origin: process.env.CORS_ORIGIN || "*",
     credentials: true
