@@ -14,7 +14,7 @@ interface ConversationProps {
   chatId: string | null;
   messages?: Message[];
   selectedUser: UserData;
-  chatType?: 'direct' | 'group';
+  chatType?: "direct" | "group";
   onBack?: () => void;
   isLoading?: boolean;
 }
@@ -53,13 +53,13 @@ export function Conversation({
       try {
         const decryptedMessages = await Promise.all(
           messages.map(async (msg) => {
-            if (chatType === 'direct' && msg.isEncrypted && msg.content) {
+            if (chatType === "direct" && msg.isEncrypted && msg.content) {
               try {
                 const plaintext = await decryptMessage(
                   msg as any,
                   currentUser.id,
                   selectedUser.id,
-                  apiFetch
+                  apiFetch,
                 );
                 return { ...msg, content: plaintext };
               } catch (err) {
@@ -68,7 +68,7 @@ export function Conversation({
               }
             }
             return msg;
-          })
+          }),
         );
 
         if (!isCancelled) {
@@ -88,12 +88,10 @@ export function Conversation({
     return () => {
       isCancelled = true;
     };
-  }, [chatId, messages, selectedUser.id, chatType]);
+  }, []);
 
   const sendMessage = async (content: string) => {
     if (!chatId) return;
-
-
 
     const optimisticId = `temp-${Date.now()}`;
 
@@ -111,7 +109,6 @@ export function Conversation({
     try {
       const currentUser = authService.getCurrentUser();
 
-
       if (!currentUser) throw new Error("User not authenticated");
 
       let messageToSend: any = {
@@ -121,19 +118,18 @@ export function Conversation({
         createdAt: optimisticMessage.createdAt,
       };
 
-
-
       // Only encrypt for direct chats
-      if (chatType === 'direct') {
-        const { content: encryptedContent, nonce, isEncrypted } = await encryptMessage(
+      if (chatType === "direct") {
+        const {
+          content: encryptedContent,
+          nonce,
+          isEncrypted,
+        } = await encryptMessage(
           content,
           currentUser.id,
           selectedUser.id,
-          apiFetch
+          apiFetch,
         );
-
-
-
 
         messageToSend.content = encryptedContent;
         messageToSend.nonce = nonce;
@@ -144,7 +140,7 @@ export function Conversation({
 
       if (response.success) {
         // We keep the optimistic message in the UI, but we could update it with the real ID
-        // Note: The real message from server will have ciphertext, 
+        // Note: The real message from server will have ciphertext,
         // but we want to keep showing the plaintext optimistically.
         mutate(["messages", chatId], undefined, { revalidate: false });
       }
@@ -152,9 +148,7 @@ export function Conversation({
       console.error("Failed to send message:", error);
 
       // ❌ 3. Rollback if failed
-      setMessages((prev) =>
-        prev.filter((msg) => msg.id !== optimisticId)
-      );
+      setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId));
     }
   };
 
@@ -163,7 +157,7 @@ export function Conversation({
       <MessageTopbar selectedUser={selectedUser} onBack={onBack} />
 
       <div className="flex-1 overflow-hidden">
-        {(isLoading || isDecrypting || !chatId) ? (
+        {isLoading || isDecrypting || !chatId ? (
           <MessageSkeleton />
         ) : (
           <MessageList messages={messagesState} selectedUser={selectedUser} />
