@@ -31,7 +31,7 @@ services:
 
   # Frontend Web Service
   - type: web
-    name: chat-app-frontend
+    name: chat-hive
     runtime: node
     plan: free
     env: node
