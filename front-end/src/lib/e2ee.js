@@ -70,8 +70,6 @@ export const generateAndStoreKeyPair = async (userId, apiFetch) => {
 
 // Load private key from IndexedDB
 const getPrivateKey = async (userId) => {
-  console.log("userId", userId);
-
   const key = await idbGet(`privateKey:${userId}`);
   if (!key)
     throw new Error("Private key not found. Has this device been set up?");
@@ -94,8 +92,6 @@ const pubKeyCache = new Map();
 
 const fetchPublicKey = async (userId, apiFetch) => {
   if (pubKeyCache.has(userId)) return pubKeyCache.get(userId);
-
-  console.log(`[E2EE] Fetching public key for user: ${userId}`);
   const promise = (async () => {
     try {
       const res = await apiFetch(`/keys/${userId}`);
@@ -155,9 +151,6 @@ export const decryptMessage = async (
   const recipientPrivKey = await getPrivateKey(recipientUserId);
   const senderPubKey = await fetchPublicKey(senderUserId, apiFetch);
 
-  console.log(recipientPrivKey, "recipientPrivKey");
-  console.log(senderPubKey, "senderPubKey");
-
   const ciphertext = decodeBase64(message.content);
   const nonce = decodeBase64(message.nonce);
 
@@ -167,8 +160,6 @@ export const decryptMessage = async (
     senderPubKey,
     recipientPrivKey,
   );
-
-  console.log(decrypted, "decrypted");
 
   if (!decrypted)
     throw new Error("Decryption failed — message may be tampered");

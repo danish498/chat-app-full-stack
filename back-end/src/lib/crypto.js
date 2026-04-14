@@ -15,15 +15,12 @@ export const storePublicKey = async (userId, publicKeyHex) => {
 
 export const getPublicKey = async (userId) => {
 
-    console.log(`Fetching public key for user: ${userId}`);
 
     const user = await db.query.users.findFirst({
         where: eq(users.id, userId),
         columns: { publicKey: true },
     });
 
-
-console.log("User found:", user);
     if (!user?.publicKey) throw new Error('PUBLIC_KEY_NOT_FOUND');
     return user.publicKey;
 };

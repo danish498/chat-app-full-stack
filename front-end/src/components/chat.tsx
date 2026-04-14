@@ -39,7 +39,6 @@ export function Chat({
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
-  console.log({ selectedUser });
 
   const {
     data: searchResults,
@@ -58,7 +57,6 @@ export function Chat({
     messageService.getMessagesByChatId(selectedChatId!),
   );
 
-  console.log({ selectedChatId });
 
   const {
     trigger,
@@ -83,7 +81,6 @@ export function Chat({
     },
   );
 
-  console.log({ chatCreateData });
 
 
 
@@ -99,10 +96,8 @@ export function Chat({
       participantIds: [String(user.id)],
     });
 
-    console.log("chat response", data);
 
     const chatId = data?.data?.id;
-    console.log({ chatId });
 
     if (chatId) {
       setSelectedChatId(chatId);
@@ -164,7 +159,6 @@ export function Chat({
         participantIds,
       });
 
-      console.log("group create response", data);
 
       // Refresh the chat list
       mutate("user-chats");

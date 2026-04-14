@@ -41,7 +41,7 @@ export function Conversation({
         setMessages([]);
         return;
       }
-      
+
       setIsDecrypting(true);
 
       const currentUser = authService.getCurrentUser();
@@ -94,7 +94,6 @@ export function Conversation({
     if (!chatId) return;
 
 
-    console.log('asfsafsafa')
 
     const optimisticId = `temp-${Date.now()}`;
 
@@ -112,7 +111,6 @@ export function Conversation({
     try {
       const currentUser = authService.getCurrentUser();
 
-      console.log({ currentUser })
 
       if (!currentUser) throw new Error("User not authenticated");
 
@@ -124,7 +122,6 @@ export function Conversation({
       };
 
 
-      console.log({ chatType })
 
       // Only encrypt for direct chats
       if (chatType === 'direct') {
@@ -136,7 +133,6 @@ export function Conversation({
         );
 
 
-        console.log('encryptedContent', encryptedContent)
 
 
         messageToSend.content = encryptedContent;
@@ -162,9 +158,6 @@ export function Conversation({
     }
   };
 
-
-
-  console.log({ messagesState })
   return (
     <div className="flex flex-col justify-between w-full h-full bg-background/50 backdrop-blur-sm">
       <MessageTopbar selectedUser={selectedUser} onBack={onBack} />

@@ -37,7 +37,6 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       socketRef.current = ws;
 
       ws.onopen = () => {
-        console.log('[WebSocket] Connected');
         setStatus('connected');
         reconnectCountRef.current = 0;
         if (reconnectTimeoutRef.current) {
@@ -51,7 +50,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         try {
           const message = JSON.parse(event.data);
           const { type, payload } = message;
-          
+
           if (listenersRef.current[type]) {
             listenersRef.current[type].forEach(callback => callback(payload));
           }
@@ -61,11 +60,10 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       };
 
       ws.onclose = (event) => {
-        console.log('[WebSocket] Disconnected:', event.code, event.reason);
         setStatus('disconnected');
         socketRef.current = null;
         stopHeartbeat();
-        
+
         // Auto-reconnect logic
         if (event.code !== 1000) { // 1000 is normal closure
           handleReconnect();
@@ -92,8 +90,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       MAX_RECONNECT_DELAY
     );
 
-    console.log(`[WebSocket] Reconnecting in ${delay}ms... (Attempt ${reconnectCountRef.current + 1})`);
-    
+
     reconnectTimeoutRef.current = setTimeout(() => {
       reconnectCountRef.current += 1;
       reconnectTimeoutRef.current = null;
@@ -157,7 +154,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const handleStorageChange = () => {
       setToken(localStorage.getItem('accessToken'));
     };
-    
+
     // Initial token
     handleStorageChange();
 
@@ -182,13 +179,13 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [disconnect]);
 
   return (
-    <WebSocketContext.Provider value={{ 
-      socket: socketRef.current, 
-      status, 
-      sendMessage, 
-      subscribe, 
-      connect, 
-      disconnect 
+    <WebSocketContext.Provider value={{
+      socket: socketRef.current,
+      status,
+      sendMessage,
+      subscribe,
+      connect,
+      disconnect
     }}>
       {children}
     </WebSocketContext.Provider>

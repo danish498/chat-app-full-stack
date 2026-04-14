@@ -16,7 +16,6 @@ export function MessageList({
 }: MessageListProps) {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  console.log("4322343243242343232", messages)
 
   React.useEffect(() => {
     if (messagesContainerRef.current) {

@@ -18,14 +18,11 @@ router.post('/', requireAuth, async (req, res) => {
 
 // Called before sending a message — fetch recipient's public key
 router.get('/:userId', requireAuth, async (req, res) => {
-    console.log(`Keys route called for userId: ${req.params.userId}`);
     try {
         const publicKey = await getPublicKey(req.params.userId);
 
-        console.log(`Public key fetched for user ${req.params.userId}: ${publicKey}`);
         res.json({ publicKey });
     } catch (error) {
-        console.log(`Error fetching public key for user ${req.params.userId}:`, error.message);
         res.status(404).json({ error: 'Public key not found' });
     }
 });
