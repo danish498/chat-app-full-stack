@@ -3,8 +3,16 @@ import logger from '../utils/logger.js';
 export const errorHandler = (err, req, res, next) => {
   logger.error(err);
   
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
+  let statusCode = err.statusCode || 500;
+  let message = err.message || 'Internal Server Error';
+
+  // Specific handling for Multer errors (e.g., file too large)
+  if (err.name === 'MulterError') {
+    statusCode = 400;
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      message = 'File size is too large. Images are capped at 5MB and videos at 20MB.';
+    }
+  }
   
   res.status(statusCode).json({
     success: false,

@@ -58,6 +58,8 @@ export const getMessagesByChatId = async (req, res, next) => {
         createdAt: messages.createdAt,
         isEdited: messages.isEdited,
         replyToId: messages.replyToId,
+        isEncrypted: messages.isEncrypted,
+        nonce: messages.nonce,
         isMe: eq(messages.senderId, userId),
       })
       .from(messages)
@@ -82,6 +84,9 @@ export const getMessagesByChatId = async (req, res, next) => {
           createdAt: messages.createdAt,
           isEdited: messages.isEdited,
           replyToId: messages.replyToId,
+          isEncrypted: messages.isEncrypted,
+          nonce: messages.nonce,
+          isMe: eq(messages.senderId, userId),
         })
         .from(messages)
         .where(
@@ -111,7 +116,17 @@ export const getMessagesByChatId = async (req, res, next) => {
 
 export const sendMessage = async (req, res, next) => {
   try {
-    const { chatId, content, messageType, replyToId, createdAt } = req.body;
+    const {
+      chatId,
+      content,
+      messageType,
+      fileUrl,
+      fileName,
+      replyToId,
+      createdAt,
+      nonce,
+      isEncrypted,
+    } = req.body;
 
     const senderId = req.user.id;
 
@@ -122,7 +137,11 @@ export const sendMessage = async (req, res, next) => {
         senderId,
         content,
         messageType,
+        fileUrl,
+        fileName,
         replyToId,
+        nonce,
+        isEncrypted,
         createdAt: createdAt ? new Date(createdAt) : undefined,
       })
       .returning();
@@ -141,8 +160,6 @@ export const sendMessage = async (req, res, next) => {
         .where(eq(chatParticipants.chatId, chatId));
 
       const otherUser = participants.find((p) => p.userId !== senderId);
-
-      console.log("Other user", participants);
 
       if (otherUser) {
         req.app.locals.broadcastNewMessage(otherUser.userId, newMessage);

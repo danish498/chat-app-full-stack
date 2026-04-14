@@ -126,7 +126,10 @@ const broadcastToAll = (payload, excludeSocketId = null) => {
 
 const authenticate = (request) => {
   try {
-    const url = new URL(request.url, `http://${request.headers.host || "localhost"}`);
+    const url = new URL(
+      request.url,
+      `http://${request.headers.host || "localhost"}`,
+    );
     const token = url.searchParams.get("token");
 
     if (!token) return null;
@@ -168,11 +171,14 @@ const onConnect = (socket, userId) => {
 
   // Broadcast presence if this is the first connection for the user
   if (isFirstSocket) {
-    broadcastToAll({
-      type: EVENTS.PRESENCE.ONLINE,
-      userId,
-      timestamp: new Date().toISOString(),
-    }, socketId);
+    broadcastToAll(
+      {
+        type: EVENTS.PRESENCE.ONLINE,
+        userId,
+        timestamp: new Date().toISOString(),
+      },
+      socketId,
+    );
   }
 };
 
@@ -219,23 +225,34 @@ const onMessage = (socket, raw) => {
     case EVENTS.ROOM.LEAVE:
     case "unsubscribe": // backward compatibility
       unsubscribe(socket.socketId, room || chatId);
-      sendJsonMessage(socket, { type: EVENTS.ROOM.LEAVE, room: room || chatId });
+      sendJsonMessage(socket, {
+        type: EVENTS.ROOM.LEAVE,
+        room: room || chatId,
+      });
       break;
 
     case EVENTS.PRESENCE.TYPING_START:
-      broadcastToRoom(chatId || room, {
-        type: EVENTS.PRESENCE.TYPING_START,
-        userId: socket.userId,
-        chatId: chatId || room,
-      }, socket.socketId);
+      broadcastToRoom(
+        chatId || room,
+        {
+          type: EVENTS.PRESENCE.TYPING_START,
+          userId: socket.userId,
+          chatId: chatId || room,
+        },
+        socket.socketId,
+      );
       break;
 
     case EVENTS.PRESENCE.TYPING_STOP:
-      broadcastToRoom(chatId || room, {
-        type: EVENTS.PRESENCE.TYPING_STOP,
-        userId: socket.userId,
-        chatId: chatId || room,
-      }, socket.socketId);
+      broadcastToRoom(
+        chatId || room,
+        {
+          type: EVENTS.PRESENCE.TYPING_STOP,
+          userId: socket.userId,
+          chatId: chatId || room,
+        },
+        socket.socketId,
+      );
       break;
 
     case EVENTS.MESSAGING.SEND:
@@ -250,7 +267,11 @@ const onMessage = (socket, raw) => {
     default:
       if (type && type.startsWith("message:")) {
         // Generic broadcast for other messaging sub-events
-        broadcastToRoom(chatId || room, { type, senderId: socket.userId, ...data }, socket.socketId);
+        broadcastToRoom(
+          chatId || room,
+          { type, senderId: socket.userId, ...data },
+          socket.socketId,
+        );
       } else {
         sendJsonMessage(socket, {
           type: "error",
