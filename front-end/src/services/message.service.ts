@@ -5,6 +5,8 @@ export interface Message {
   chatId: string;
   senderId: string;
   content: string;
+  nonce?: string;
+  isEncrypted?: boolean;
   messageType: 'text' | 'image' | 'file';
   fileUrl: string | null;
   isEdited: boolean;
@@ -17,6 +19,8 @@ export interface Message {
 export interface MessagePayload {
   chatId: string;
   content: string;
+  nonce?: string;
+  isEncrypted?: boolean;
   messageType: 'text' | 'image' | 'file';
   createdAt?: string;
 }

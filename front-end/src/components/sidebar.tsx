@@ -164,7 +164,7 @@ export function Sidebar({
                 }}
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800/50 ",
-                  selectedUser?.name === link.name && "bg-zinc-100 dark:bg-zinc-800"
+                  link.variant === "grey" && "bg-zinc-100 dark:bg-zinc-800"
                 )}
               >
                 <Avatar className="h-12 w-12 shrink-0">

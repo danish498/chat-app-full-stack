@@ -31,7 +31,7 @@ const authService = {
     const response = await api.post('/auth/login', { email, password });
     const { success, data } = response.data;
     
-    if (success && data.accessToken) {
+      if (success && data.accessToken) {
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       localStorage.setItem('user', JSON.stringify(data.user));
@@ -67,11 +67,11 @@ const authService = {
     localStorage.removeItem('user');
     window.location.href = '/login';
   },
-
   getProfile: async (): Promise<User> => {
     const response = await api.get('/auth/profile');
-    localStorage.setItem('user', JSON.stringify(response.data));
-    return response.data;
+    const user = response.data.data || response.data;
+    localStorage.setItem('user', JSON.stringify(user));
+    return user;
   },
 
   getCurrentUser: (): User | null => {

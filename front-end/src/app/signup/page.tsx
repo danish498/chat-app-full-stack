@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Mail, Lock, User, Link as LucideLink, Terminal, ArrowRight } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import authService from "@/services/auth.service";
+import { apiFetch, setAccessToken } from "@/lib/apiClient";
+import { generateAndStoreKeyPair } from "@/lib/e2ee";
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -28,7 +30,17 @@ export default function SignupPage() {
     setError("");
 
     try {
-      await authService.signup(formData);
+      // ── CHANGE 1: capture the response ──
+      const response = await authService.signup(formData);
+
+      // ── CHANGE 2: store token + generate E2EE keypair ──
+      const { accessToken, user } = response.data; // adjust to match your response shape
+      setAccessToken(accessToken);
+
+      await generateAndStoreKeyPair(user.id, apiFetch);
+      //    ↑ THIS is where IndexedDB gets created for the first time
+      //      and the private key is stored + public key uploaded to server
+
       router.push("/");
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || "Something went wrong");
@@ -45,8 +57,8 @@ export default function SignupPage() {
   };
 
   return (
-    <AuthLayout 
-      title="Create Account" 
+    <AuthLayout
+      title="Create Account"
       subtitle="Join Antigravity Chat today. Experience the speed."
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -126,7 +138,7 @@ export default function SignupPage() {
         </div>
 
         {error && (
-           <motion.div
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="text-red-400 text-xs font-medium bg-red-500/10 p-3 rounded-lg border border-red-500/20 text-center"

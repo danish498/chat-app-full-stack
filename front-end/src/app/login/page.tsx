@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import authService from "@/services/auth.service";
+import { apiFetch, setAccessToken } from "@/lib/apiClient";
+import { generateAndStoreKeyPair, idbGet } from "@/lib/e2ee";
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -19,6 +21,37 @@ export default function LoginPage() {
 
   const router = useRouter();
 
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setLoading(true);
+  //   setError("");
+
+  //   try {
+  //     const response = await authService.login(formData.email, formData.password);
+
+  //     if (response.data.accessToken) {
+  //       // Tokens are handled by authService (localStorage)
+  //       router.push("/");
+  //     } else {
+  //       throw new Error("Invalid response from server");
+  //     }
+  //   } catch (err: any) {
+  //     setError(err.response?.data?.message || err.message || "Something went wrong");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -28,7 +61,18 @@ export default function LoginPage() {
       const response = await authService.login(formData.email, formData.password);
 
       if (response.data.accessToken) {
-        // Tokens are handled by authService (localStorage)
+        // ── CHANGE 1: store token in memory, not localStorage ──
+        setAccessToken(response.data.accessToken);
+
+        // ── CHANGE 2: check if this device already has a key ──
+        const userId = response.data.user.id; // adjust to match your response shape
+        const existingKey = await idbGet(`privateKey:${userId}`);
+
+        if (!existingKey) {
+          // New device or cleared browser — regenerate and re-upload public key
+          await generateAndStoreKeyPair(userId, apiFetch);
+        }
+
         router.push("/");
       } else {
         throw new Error("Invalid response from server");
@@ -38,13 +82,6 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
   };
 
   return (

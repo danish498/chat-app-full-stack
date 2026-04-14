@@ -242,6 +242,7 @@ export function Chat({
               chatId={selectedChatId}
               messages={messagesData?.data}
               selectedUser={selectedUser}
+              chatType={chats?.data?.find(c => c.id === selectedChatId)?.type}
               isLoading={messageLoading}
               onBack={isMobile ? () => setSelectedUser(null) : undefined}
             />

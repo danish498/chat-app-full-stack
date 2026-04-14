@@ -122,6 +122,8 @@ export interface Message {
     chatId: string;
     senderId: string;
     content: string;
+    nonce?: string;
+    isEncrypted?: boolean;
     messageType: "text" | "image" | "file";
     fileUrl: string | null;
     createdAt: string;
