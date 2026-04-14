@@ -1,4 +1,6 @@
 import api from '@/services/api';
+import { AxiosResponse } from 'axios';
+
 
 // ─── In-memory token store ─────────────────────────────────────────────────────
 // Access token lives here — never in localStorage, never in a cookie JS can read.
@@ -48,7 +50,7 @@ export const apiFetch = async (url: string, options: any = {}) => {
 
   const doRequest = async () => {
     try {
-      let response;
+      let response: AxiosResponse;
 
       if (method.toUpperCase() === 'GET') {
         response = await api.get(url, { headers, ...rest });

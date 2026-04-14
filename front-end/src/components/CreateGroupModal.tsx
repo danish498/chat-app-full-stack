@@ -184,7 +184,7 @@ export function CreateGroupModal({
                 })
               ) : searchQuery && !isSearching ? (
                 <div className="text-center py-6">
-                  <p className="text-sm text-zinc-500">No users found matching "{searchQuery}"</p>
+                  <p className="text-sm text-zinc-500">No users found matching &quot;{searchQuery}&quot;</p>
                 </div>
               ) : !searchQuery && (
                 <div className="text-center py-6">
