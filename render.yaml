@@ -6,7 +6,7 @@ services:
     plan: free
     env: node
     rootDir: back-end
-    buildCommand: "npm install --production"
+    buildCommand: "npm install"
     startCommand: "npm start"
     autoDeploy: true
     envVars:
@@ -16,7 +16,6 @@ services:
         value: 10000
       - key: HOST
         value: 0.0.0.0
-      # Add your other environment variables here
       - key: DATABASE_URL
         sync: false
       - key: ACCESS_TOKEN_SECRET
@@ -29,3 +28,19 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+
+  # Frontend Web Service
+  - type: web
+    name: chat-app-frontend
+    runtime: node
+    plan: free
+    env: node
+    rootDir: front-end
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm run start"
+    autoDeploy: true
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: "https://chat-app-backend.onrender.com/api"
+      - key: NEXT_PUBLIC_WS_URL
+        value: "wss://chat-app-backend.onrender.com"
