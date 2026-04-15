@@ -8,21 +8,30 @@ import { AnimatePresence, motion } from "framer-motion";
 interface MessageListProps {
   messages?: Message[];
   selectedUser: UserData;
+  isLoadingMore?: boolean;
+  onScroll?: React.UIEventHandler<HTMLDivElement>;
+  containerRef?: React.RefObject<HTMLDivElement>;
 }
 
 export function MessageList({
   messages,
   selectedUser,
+  isLoadingMore,
+  onScroll,
+  containerRef,
 }: MessageListProps) {
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const internalRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = containerRef ?? internalRef;
 
+  const shouldAutoScrollRef = React.useRef(true);
 
   React.useEffect(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop =
-        messagesContainerRef.current.scrollHeight;
-    }
-  }, [messages]);
+    const el = messagesContainerRef.current;
+    if (!el) return;
+
+    if (!shouldAutoScrollRef.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [messages, messagesContainerRef]);
 
   const formatTime = (dateString: string) => {
     return new Date(dateString).toLocaleTimeString([], {
@@ -83,8 +92,29 @@ export function MessageList({
     <div className="w-full overflow-y-auto overflow-x-hidden h-full flex flex-col">
       <div
         ref={messagesContainerRef}
+        onScroll={(e) => {
+          const el = messagesContainerRef.current;
+          if (el) {
+            const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+            // consider user "at bottom" if within 120px
+            shouldAutoScrollRef.current = distanceFromBottom < 120;
+          }
+          onScroll?.(e);
+        }}
         className="w-full overflow-y-auto overflow-x-hidden h-full flex flex-col p-4 gap-4"
       >
+        {isLoadingMore && (
+          <div className="w-full flex flex-col gap-3 pb-2">
+            <div className="mx-auto h-4 w-32 rounded-full bg-muted/70 animate-pulse" />
+            <div className="flex gap-2">
+              <div className="h-8 w-8 rounded-full bg-muted/60 animate-pulse" />
+              <div className="h-10 w-64 max-w-[70%] rounded-2xl bg-muted/60 animate-pulse" />
+            </div>
+            <div className="flex justify-end">
+              <div className="h-10 w-52 max-w-[70%] rounded-2xl bg-muted/60 animate-pulse" />
+            </div>
+          </div>
+        )}
         <AnimatePresence initial={false}>
           {messages?.map((message, index) => (
             <motion.div

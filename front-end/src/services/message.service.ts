@@ -29,6 +29,7 @@ export interface MessagePayload {
 export interface MessagesResponse {
   success: boolean;
   data: Message[];
+  nextCursor?: string | null;
 }
 
 export interface SingleMessageResponse {
@@ -37,9 +38,17 @@ export interface SingleMessageResponse {
 }
 
 const messageService = {
-  getMessagesByChatId: async (chatId: string): Promise<MessagesResponse> => {
-    const response = await api.get(`/messages/${chatId}`);
-    return response.data;
+  getMessagesByChatId: async (
+    chatId: string,
+    cursorValue?: string,
+    limit: number = 10,
+  ): Promise<MessagesResponse> => {
+    const params = new URLSearchParams();
+    params.set("limit", String(limit));
+    if (cursorValue) params.set("cursor", cursorValue);
+
+    const res = await api.get(`/messages/${chatId}?${params.toString()}`);
+    return res.data;
   },
 
   sendMessage: async (payload: MessagePayload): Promise<SingleMessageResponse> => {

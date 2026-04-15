@@ -1,7 +1,7 @@
 import { Message, UserData } from "@/app/data";
 import MessageTopbar from "./message-topbar";
 import { MessageList } from "./messasge-list";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { MessageSkeleton } from "./message-skeleton";
 import MessageBottombar from "./message-bottombar";
 import messageService from "@/services/message.service";
@@ -13,6 +13,7 @@ import authService from "@/services/auth.service";
 interface ConversationProps {
   chatId: string | null;
   messages?: Message[];
+  initialNextCursor?: string | null;
   selectedUser: UserData;
   chatType?: "direct" | "group";
   onBack?: () => void;
@@ -23,6 +24,7 @@ interface ConversationProps {
 export function Conversation({
   chatId,
   messages,
+  initialNextCursor,
   selectedUser,
   chatType,
   onBack,
@@ -30,67 +32,122 @@ export function Conversation({
   onUserClick,
 }: ConversationProps) {
   const { mutate } = useSWRConfig();
-  const sequenceRef = useRef<number>(0);
-
   const [messagesState, setMessages] = React.useState<Message[]>([]);
   const [isDecrypting, setIsDecrypting] = React.useState(false);
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
+  const [nextCursor, setNextCursor] = React.useState<string | null>(null);
+  const [hasMore, setHasMore] = React.useState(false);
+  const listRef = React.useRef<HTMLDivElement>(null);
+
+  const decryptBatch = React.useCallback(
+    async (batch: Message[]) => {
+      if (!batch.length) return batch;
+
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) return batch;
+
+      if (chatType !== "direct") return batch;
+
+      const decrypted = await Promise.all(
+        batch.map(async (msg) => {
+          if (msg.isEncrypted && msg.content) {
+            try {
+              const plaintext = await decryptMessage(
+                msg as any,
+                currentUser.id,
+                selectedUser.id,
+                apiFetch,
+              );
+              return { ...msg, content: plaintext };
+            } catch (err) {
+              console.error("Failed to decrypt message:", msg.id, err);
+              return { ...msg, content: "[Decryption Failed]" };
+            }
+          }
+          return msg;
+        }),
+      );
+      return decrypted;
+    },
+    [chatType, selectedUser.id],
+  );
 
   useEffect(() => {
     let isCancelled = false;
 
-    const decryptMessages = async () => {
-      if (!messages || messages.length === 0) {
+    const hydrate = async () => {
+      if (!chatId || !messages || messages.length === 0) {
         setMessages([]);
+        setNextCursor(null);
+        setHasMore(false);
         return;
       }
 
       setIsDecrypting(true);
-
-      const currentUser = authService.getCurrentUser();
-      if (!currentUser) {
-        setIsDecrypting(false);
-        return;
-      }
-
       try {
-        const decryptedMessages = await Promise.all(
-          messages.map(async (msg) => {
-            if (chatType === "direct" && msg.isEncrypted && msg.content) {
-              try {
-                const plaintext = await decryptMessage(
-                  msg as any,
-                  currentUser.id,
-                  selectedUser.id,
-                  apiFetch,
-                );
-                return { ...msg, content: plaintext };
-              } catch (err) {
-                console.error("Failed to decrypt message:", msg.id, err);
-                return { ...msg, content: "[Decryption Failed]" };
-              }
-            }
-            return msg;
-          }),
-        );
-
-        if (!isCancelled) {
-          setMessages(decryptedMessages);
-          setIsDecrypting(false);
-        }
+        const decrypted = await decryptBatch(messages);
+        if (isCancelled) return;
+        setMessages(decrypted);
+        setNextCursor(initialNextCursor ?? null);
+        setHasMore(!!initialNextCursor);
       } catch (error) {
         console.error("Decryption batch error:", error);
+      } finally {
         if (!isCancelled) setIsDecrypting(false);
       }
     };
 
-    if (chatId) {
-      decryptMessages();
-    }
+    hydrate();
 
     return () => {
       isCancelled = true;
     };
   }, [chatId]);
+
+  const loadOlder = React.useCallback(async () => {
+    if (!chatId) return;
+    if (!nextCursor || !hasMore) return;
+    if (isLoadingMore) return;
+
+    const el = listRef.current;
+    const prevScrollHeight = el?.scrollHeight ?? 0;
+    const prevScrollTop = el?.scrollTop ?? 0;
+
+    setIsLoadingMore(true);
+    try {
+      const res = await messageService.getMessagesByChatId(chatId, nextCursor, 15);
+      const batch = res.data ?? [];
+      if (!batch.length) {
+        setHasMore(false);
+        setNextCursor(null);
+        return;
+      }
+
+      const decrypted = await decryptBatch(batch);
+      setMessages((prev) => {
+        const seen = new Set(prev.map((m) => m.id));
+        const merged = [...decrypted.filter((m) => !seen.has(m.id)), ...prev];
+        return merged;
+      });
+
+      const nc = (res as any).nextCursor ?? null;
+      setNextCursor(nc);
+      setHasMore(!!nc);
+
+      // keep viewport anchored after prepending
+      requestAnimationFrame(() => {
+        const node = listRef.current;
+        if (!node) return;
+        const newScrollHeight = node.scrollHeight;
+        const delta = newScrollHeight - prevScrollHeight;
+        node.scrollTop = prevScrollTop + delta;
+      });
+    } catch (err) {
+      console.error("Failed to load older messages:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [chatId, nextCursor, hasMore, isLoadingMore, decryptBatch]);
 
   const sendMessage = async (
     content: string,
@@ -160,13 +217,24 @@ export function Conversation({
 
   return (
     <div className="flex flex-col w-full h-full bg-background/50 backdrop-blur-sm">
-      <MessageTopbar selectedUser={selectedUser} onBack={onBack}  onUserClick={onUserClick} />
+      <MessageTopbar selectedUser={selectedUser} onBack={onBack} onUserClick={onUserClick} />
 
       <div className="flex-1 min-h-0 overflow-hidden">
         {isLoading || isDecrypting || !chatId ? (
           <MessageSkeleton />
         ) : (
-          <MessageList messages={messagesState} selectedUser={selectedUser} />
+          <MessageList
+            messages={messagesState}
+            selectedUser={selectedUser}
+            containerRef={listRef}
+            isLoadingMore={isLoadingMore}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              if (el.scrollTop < 120) {
+                loadOlder();
+              }
+            }}
+          />
         )}
       </div>
 

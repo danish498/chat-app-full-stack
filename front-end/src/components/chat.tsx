@@ -30,16 +30,11 @@ export function Chat({
   defaultCollapsed = false,
   navCollapsedSize,
 }: ChatProps) {
-
-
   const {
     data: chats,
     error,
     isLoading: chatLoading,
   } = useSWR("user-chats", chatService.getChats);
-
-
-
 
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -47,22 +42,21 @@ export function Chat({
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
-  const [selectedChatIdForDetails, setSelectedChatIdForDetails] = useState<string | null>(null);
-
-
+  const [selectedChatIdForDetails, setSelectedChatIdForDetails] = useState<
+    string | null
+  >(null);
 
   const {
     data: selectedChat,
     error: selectedChatError,
     isLoading: selectedChatLoading,
   } = useSWR(
-    selectedChatIdForDetails ? ["get-chat-by-id", selectedChatIdForDetails] : null,
+    selectedChatIdForDetails
+      ? ["get-chat-by-id", selectedChatIdForDetails]
+      : null,
     () => chatService.getChatById(selectedChatIdForDetails as string),
   );
 
-
-
-  console.log({ selectedChat });
 
   const {
     data: searchResults,
@@ -80,7 +74,6 @@ export function Chat({
   } = useSWR(selectedChatId ? ["messages", selectedChatId] : null, () =>
     messageService.getMessagesByChatId(selectedChatId!),
   );
-
 
   const {
     trigger,
@@ -105,8 +98,6 @@ export function Chat({
     },
   );
 
-
-
   const handleSelectedUser = async (user: UserData) => {
     setSelectedUser(user);
 
@@ -115,7 +106,6 @@ export function Chat({
       type: "direct",
       participantIds: [String(user.id)],
     });
-
 
     const chatId = data?.data?.id;
 
@@ -138,7 +128,7 @@ export function Chat({
         avatar:
           chat.type === "direct"
             ? chat.otherUser.avatarUrl ||
-            "https://avatars.githubusercontent.com/u/79553845"
+              "https://avatars.githubusercontent.com/u/79553845"
             : (chat.avatarUrl ??
               "https://avatars.githubusercontent.com/u/79553845"),
         messages: [],
@@ -150,20 +140,22 @@ export function Chat({
     chats?.data?.map((chat) => {
       const name =
         chat.type === "direct"
-          ? (chat.otherUser?.displayName || chat.otherUser?.username)
+          ? chat.otherUser?.displayName || chat.otherUser?.username
           : (chat.name ?? "Group");
       return {
         id: chat.id,
         name: name,
-        messages: chat.lastMessage ? [chat.lastMessage] : [] as Message[],
+        messages: chat.lastMessage ? [chat.lastMessage] : ([] as Message[]),
         avatar:
           chat.type === "direct"
-            ? (chat.otherUser?.avatarUrl || "https://avatars.githubusercontent.com/u/79553845")
+            ? chat.otherUser?.avatarUrl ||
+              "https://avatars.githubusercontent.com/u/79553845"
             : (chat.avatarUrl ??
               "https://avatars.githubusercontent.com/u/79553845"),
-        variant: (selectedUser?.id === (chat.type === "direct" ? chat.otherUser?.id : chat.id) ? "grey" : "ghost") as
-          | "grey"
-          | "ghost",
+        variant: (selectedUser?.id ===
+        (chat.type === "direct" ? chat.otherUser?.id : chat.id)
+          ? "grey"
+          : "ghost") as "grey" | "ghost",
         type: chat.type,
       };
     }) || [];
@@ -179,7 +171,6 @@ export function Chat({
         type: "group",
         participantIds,
       });
-
 
       // Refresh the chat list
       mutate("user-chats");
@@ -205,10 +196,9 @@ export function Chat({
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-
-  const { data: currentUser } = useSWR("current-user", () => authService.getProfile());
-
-
+  const { data: currentUser } = useSWR("current-user", () =>
+    authService.getProfile(),
+  );
 
   const handleUserChatClick = (selectedChatId: string) => {
     // setSelectedUser(user);
@@ -216,15 +206,14 @@ export function Chat({
 
     setSelectedChatIdForDetails(selectedChatId);
 
-
     // console.log('safsdafsadfsdafsa', user.id);
-
   };
 
-
-
   return (
-    <div className="flex w-full bg-background overflow-hidden" style={{ height: '100dvh' }}>
+    <div
+      className="flex w-full bg-background overflow-hidden"
+      style={{ height: "100dvh" }}
+    >
       {/* Sidebar - Hidden on mobile if a user is selected */}
       <div
         className={cn(
@@ -272,11 +261,16 @@ export function Chat({
             <Conversation
               chatId={selectedChatId}
               messages={messagesData?.data}
+              initialNextCursor={messagesData?.nextCursor ?? null}
               selectedUser={selectedUser}
-              chatType={chats?.data?.find(c => c.id === selectedChatId)?.type}
+              chatType={chats?.data?.find((c) => c.id === selectedChatId)?.type}
               isLoading={messageLoading}
               onBack={isMobile ? () => setSelectedUser(null) : undefined}
-              onUserClick={selectedChatId ? () => handleUserChatClick(selectedChatId) : undefined}
+              onUserClick={
+                selectedChatId
+                  ? () => handleUserChatClick(selectedChatId)
+                  : undefined
+              }
             />
           )
         ) : (
@@ -288,17 +282,17 @@ export function Chat({
         )}
       </div>
 
-
-
       {/* Chat Details Panel (3rd column) */}
 
       {/* Mobile bottom sheet */}
 
-      {
-        isMobile && <div className="lg:hidden">
+      {isMobile && (
+        <div className="lg:hidden">
           <Sheet
             open={!!selectedChatIdForDetails}
-            onOpenChange={(open) => setSelectedChatIdForDetails(open ? selectedChatId : null)}
+            onOpenChange={(open) =>
+              setSelectedChatIdForDetails(open ? selectedChatId : null)
+            }
           >
             <SheetContent
               side="bottom"
@@ -311,27 +305,21 @@ export function Chat({
             </SheetContent>
           </Sheet>
         </div>
-      }
+      )}
 
-
-
-      {
-        selectedChatIdForDetails && (
-          <div
-            className={cn(
-              "hidden lg:flex h-full w-[320px] max-w-[380px] border-l",
-              !selectedUser && "opacity-60",
-            )}
-          >
-            <ChatDetailsPanel
-              chat={selectedChat?.data as any}
-              onClose={() => setSelectedChatIdForDetails(null)}
-            />
-          </div>
-        )
-      }
-
-
+      {selectedChatIdForDetails && (
+        <div
+          className={cn(
+            "hidden lg:flex h-full w-[320px] max-w-[380px] border-l",
+            !selectedUser && "opacity-60",
+          )}
+        >
+          <ChatDetailsPanel
+            chat={selectedChat?.data as any}
+            onClose={() => setSelectedChatIdForDetails(null)}
+          />
+        </div>
+      )}
 
       <CreateGroupModal
         isOpen={isGroupModalOpen}

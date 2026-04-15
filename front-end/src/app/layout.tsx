@@ -18,6 +18,7 @@ export const viewport = {
 import { ThemeProvider } from "@/components/theme-provider";
 import { WebSocketProvider } from "@/context/WebSocketContext";
 import { Toaster } from "@/components/ui/sonner";
+import { AccentThemeLoader } from "@/components/accent-theme-loader";
 
 export default function RootLayout({
   children,
@@ -33,6 +34,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <AccentThemeLoader />
           <WebSocketProvider>
             {children}
             <Toaster />

@@ -22,13 +22,107 @@ import logger from "../utils/logger.js";
 //   }
 // };
 
+// export const getMessagesByChatId = async (req, res, next) => {
+//   try {
+//     const { chatId } = req.params;
+//     const userId = req.user.id;
+
+//     const { cursor } = req.query;
+
+//     const isParticipant = await db
+//       .select({ id: chatParticipants.id })
+//       .from(chatParticipants)
+//       .where(
+//         and(
+//           eq(chatParticipants.chatId, chatId),
+//           eq(chatParticipants.userId, userId),
+//         ),
+//       )
+//       .limit(1);
+
+//     if (!isParticipant.length) {
+//       return res.status(403).json({
+//         success: false,
+//         message: "Not allowed to access this chat",
+//       });
+//     }
+
+//     let query = db
+//       .select({
+//         id: messages.id,
+//         chatId: messages.chatId,
+//         senderId: messages.senderId,
+//         content: messages.content,
+//         messageType: messages.messageType,
+//         fileUrl: messages.fileUrl,
+//         createdAt: messages.createdAt,
+//         isEdited: messages.isEdited,
+//         replyToId: messages.replyToId,
+//         isEncrypted: messages.isEncrypted,
+//         nonce: messages.nonce,
+//         isMe: eq(messages.senderId, userId),
+//       })
+//       .from(messages)
+//       .where(
+//         and(
+//           eq(messages.chatId, chatId),
+//           or(eq(messages.isDeleted, false), isNull(messages.isDeleted)),
+//         ),
+//       )
+//       .orderBy(desc(messages.createdAt))
+//       .limit(10);
+
+//     if (cursor) {
+//       query = db
+//         .select({
+//           id: messages.id,
+//           chatId: messages.chatId,
+//           senderId: messages.senderId,
+//           content: messages.content,
+//           messageType: messages.messageType,
+//           fileUrl: messages.fileUrl,
+//           createdAt: messages.createdAt,
+//           isEdited: messages.isEdited,
+//           replyToId: messages.replyToId,
+//           isEncrypted: messages.isEncrypted,
+//           nonce: messages.nonce,
+//           isMe: eq(messages.senderId, userId),
+//         })
+//         .from(messages)
+//         .where(
+//           and(
+//             eq(messages.chatId, chatId),
+//             lt(messages.createdAt, new Date(cursor)),
+//             or(eq(messages.isDeleted, false), isNull(messages.isDeleted)),
+//           ),
+//         )
+//         .orderBy(desc(messages.createdAt))
+//         .limit(10);
+//     }
+
+//     const rows = await query;
+
+//     const messagesOrdered = rows.reverse();
+
+//     return res.json({
+//       success: true,
+//       data: messagesOrdered,
+//       nextCursor: rows.length ? rows[rows.length - 1].createdAt : null,
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
+
+
 export const getMessagesByChatId = async (req, res, next) => {
   try {
     const { chatId } = req.params;
     const userId = req.user.id;
+    const { cursor, limit = 10 } = req.query;
 
-    const { cursor } = req.query;
-
+    // ✅ Check access
     const isParticipant = await db
       .select({ id: chatParticipants.id })
       .from(chatParticipants)
@@ -47,7 +141,16 @@ export const getMessagesByChatId = async (req, res, next) => {
       });
     }
 
-    let query = db
+    // ✅ Decode cursor (same as getChats)
+    let decodedCursor = null;
+    if (cursor) {
+      decodedCursor = JSON.parse(
+        Buffer.from(cursor, "base64").toString("utf-8"),
+      );
+    }
+
+    // ✅ Build query
+    const rows = await db
       .select({
         id: messages.id,
         chatId: messages.chatId,
@@ -67,47 +170,43 @@ export const getMessagesByChatId = async (req, res, next) => {
         and(
           eq(messages.chatId, chatId),
           or(eq(messages.isDeleted, false), isNull(messages.isDeleted)),
+
+          // ✅ Cursor condition
+          decodedCursor
+            ? or(
+                lt(messages.createdAt, new Date(decodedCursor.createdAt)),
+                and(
+                  eq(messages.createdAt, new Date(decodedCursor.createdAt)),
+                  lt(messages.id, decodedCursor.id), // tie-breaker 🔥
+                ),
+              )
+            : undefined,
         ),
       )
-      .orderBy(desc(messages.createdAt))
-      .limit(10);
+      .orderBy(desc(messages.createdAt), desc(messages.id)) // ✅ stable sorting
+      .limit(Number(limit) + 1); // ✅ +1 trick
 
-    if (cursor) {
-      query = db
-        .select({
-          id: messages.id,
-          chatId: messages.chatId,
-          senderId: messages.senderId,
-          content: messages.content,
-          messageType: messages.messageType,
-          fileUrl: messages.fileUrl,
-          createdAt: messages.createdAt,
-          isEdited: messages.isEdited,
-          replyToId: messages.replyToId,
-          isEncrypted: messages.isEncrypted,
-          nonce: messages.nonce,
-          isMe: eq(messages.senderId, userId),
-        })
-        .from(messages)
-        .where(
-          and(
-            eq(messages.chatId, chatId),
-            lt(messages.createdAt, new Date(cursor)),
-            or(eq(messages.isDeleted, false), isNull(messages.isDeleted)),
-          ),
-        )
-        .orderBy(desc(messages.createdAt))
-        .limit(10);
+    // ✅ Pagination handling
+    let nextCursor = null;
+
+    if (rows.length > Number(limit)) {
+      const nextItem = rows.pop();
+
+      nextCursor = Buffer.from(
+        JSON.stringify({
+          createdAt: nextItem.createdAt,
+          id: nextItem.id,
+        }),
+      ).toString("base64");
     }
 
-    const rows = await query;
-
+    // ✅ Reverse for chat UI (oldest → newest)
     const messagesOrdered = rows.reverse();
 
     return res.json({
       success: true,
       data: messagesOrdered,
-      nextCursor: rows.length ? rows[rows.length - 1].createdAt : null,
+      nextCursor,
     });
   } catch (error) {
     next(error);
