@@ -31,6 +31,54 @@ export function MessageList({
     });
   };
 
+  const isVideoUrl = (url: string) =>
+    /\.(mp4|webm|ogg|mov|avi|mkv)(\?.*)?$/i.test(url);
+
+  const renderMedia = (message: Message) => {
+    const { fileUrl, messageType, content } = message;
+
+    if (!fileUrl) return <>{content}</>;
+
+    const isImage = messageType === "image";
+    const isVideo = messageType === "video" ? isVideoUrl(fileUrl) : false;
+
+    return (
+      <div className="flex flex-col gap-1.5">
+        {isImage && (
+          <img
+            src={fileUrl}
+            alt="shared image"
+            className="max-w-[260px] w-full rounded-xl object-cover shadow-md cursor-pointer hover:opacity-95 transition-opacity"
+            onClick={() => window.open(fileUrl, "_blank")}
+          />
+        )}
+
+        {isVideo && (
+          <video
+            src={fileUrl}
+            controls
+            className="max-w-[280px] w-full rounded-xl shadow-md"
+          />
+        )}
+
+        {!isImage && !isVideo && (
+          <a
+            href={fileUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 text-xs underline underline-offset-2 opacity-80 hover:opacity-100"
+          >
+            📎 {fileUrl.split("/").pop() ?? "Download file"}
+          </a>
+        )}
+
+        {content && messageType == "text" && (
+          <span>{content}</span>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="w-full overflow-y-auto overflow-x-hidden h-full flex flex-col">
       <div
@@ -80,7 +128,7 @@ export function MessageList({
                         : "bg-muted text-foreground rounded-tl-none border border-border/50"
                     )}
                   >
-                    {message.content}
+                    {renderMedia(message)}
                     <div
                       className={cn(
                         "text-[10px] mt-1 opacity-70 font-medium",

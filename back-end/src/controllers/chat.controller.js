@@ -1,6 +1,6 @@
 import { db } from "../db/db.js";
 import { chats, chatParticipants, users, messages } from "../db/schema.js";
-import { eq, and, or, isNull, inArray, desc } from "drizzle-orm";
+import { eq, and, or, isNull, inArray, desc, sql, lt, gt, like } from "drizzle-orm";
 
 import { Buffer } from "buffer";
 
@@ -106,7 +106,46 @@ export const getChats = async (req, res, next) => {
 
     let chatsArray = Array.from(chatMap.values());
 
-    // Step 4: handle pagination
+    // Step 4: Fetch last message for each chat
+    const chatIdsForLastMessage = chatsArray.map((chat) => chat.id);
+
+    if (chatIdsForLastMessage.length > 0) {
+      const lastMessages = await db
+        .select({
+          chatId: messages.chatId,
+          id: messages.id,
+          content: messages.content,
+          senderId: messages.senderId,
+          messageType: messages.messageType,
+          createdAt: messages.createdAt,
+        })
+        .from(messages)
+        .where(
+          and(
+            inArray(messages.chatId, chatIdsForLastMessage),
+            or(eq(messages.isDeleted, false), isNull(messages.isDeleted)),
+            eq(
+              messages.id,
+              sql`(SELECT m2.id FROM messages m2 WHERE m2.chat_id = ${messages.chatId} AND (m2.is_deleted = false OR m2.is_deleted IS NULL) ORDER BY m2.created_at DESC LIMIT 1)`
+            ),
+          ),
+        );
+
+      for (const msg of lastMessages) {
+        const chat = chatMap.get(msg.chatId);
+        if (chat) {
+          chat.lastMessage = {
+            id: msg.id,
+            content:  msg.messageType === "video" ? "video" : msg.messageType === "image" ? "image" : msg.content,
+            senderId: msg.senderId,
+            messageType: msg.messageType,
+            createdAt: msg.createdAt,
+          };
+        }
+      }
+    }
+
+    // Step 5: handle pagination
     let nextCursor = null;
 
     if (chatsArray.length > Number(limit)) {
@@ -179,6 +218,7 @@ export const getChatById = async (req, res, next) => {
         id: messages.id,
         content: messages.content,
         senderId: messages.senderId,
+        messageType: messages.messageType,
         createdAt: messages.createdAt,
       })
       .from(messages)
@@ -196,7 +236,7 @@ export const getChatById = async (req, res, next) => {
     if (myParticipant.lastReadAt) {
       const result = await db
         .select({
-          count: sql < number > `count(*)`,
+          count: sql<number>`count(*)`,
         })
         .from(messages)
         .where(
@@ -210,6 +250,11 @@ export const getChatById = async (req, res, next) => {
       unreadCount = Number(result[0]?.count || 0);
     }
 
+    const otherUser =
+      chat.type === "direct"
+        ? participants.find((p) => p.userId !== userId) || null
+        : null;
+
     const response = {
       id: chat.id,
       name: chat.name,
@@ -219,6 +264,7 @@ export const getChatById = async (req, res, next) => {
       createdAt: chat.createdAt,
 
       participants,
+      otherUser,
 
       lastMessage: lastMessage || null,
       unreadCount,
@@ -489,6 +535,112 @@ export const addMember = async (req, res, next) => {
     return res.status(201).json({
       success: true,
       data: newParticipant,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+export const getChatMembers = async (req, res, next) => {
+  try {
+    const { id: chatId } = req.params;
+    const { search } = req.query;
+    const currentUserId = req.user.id;
+
+    // 1. Check if chat exists
+    const [chat] = await db
+      .select()
+      .from(chats)
+      .where(eq(chats.id, chatId));
+
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: "Chat not found",
+      });
+    }
+
+    // 2. Check if current user is a member and is admin
+    const [currentUserParticipant] = await db
+      .select()
+      .from(chatParticipants)
+      .where(
+        and(
+          eq(chatParticipants.chatId, chatId),
+          eq(chatParticipants.userId, currentUserId),
+        ),
+      );
+
+    if (!currentUserParticipant) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not a member of this chat",
+      });
+    }
+
+    // 3. If search query provided, search all users (admin only)
+    if (search) {
+      if (currentUserParticipant.role !== "admin") {
+        return res.status(403).json({
+          success: false,
+          message: "Only admins can search for users",
+        });
+      }
+
+      const searchPattern = `%${search}%`;
+
+      const allUsers = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          displayName: users.displayName,
+          avatarUrl: users.avatarUrl,
+        })
+        .from(users)
+        .where(
+          or(
+            like(users.username, searchPattern),
+            like(users.displayName, searchPattern),
+          ),
+        );
+
+      // Get existing chat members to mark them
+      const existingMembers = await db
+        .select({ userId: chatParticipants.userId })
+        .from(chatParticipants)
+        .where(eq(chatParticipants.chatId, chatId));
+
+      const memberUserIds = new Set(existingMembers.map(m => m.userId));
+
+      // Mark users who are already in the chat
+      const usersWithMembershipFlag = allUsers.map(user => ({
+        ...user,
+        isAlreadyMember: memberUserIds.has(user.id),
+      }));
+
+      return res.status(200).json({
+        success: true,
+        data: usersWithMembershipFlag,
+      });
+    }
+
+    // 4. If no search, return current members (existing behavior)
+    const members = await db
+      .select({
+        id: chatParticipants.userId,
+        username: users.username,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+        role: chatParticipants.role,
+      })
+      .from(chatParticipants)
+      .innerJoin(users, eq(chatParticipants.userId, users.id))
+      .where(eq(chatParticipants.chatId, chatId));
+
+    return res.status(200).json({
+      success: true,
+      data: members,
     });
   } catch (error) {
     next(error);

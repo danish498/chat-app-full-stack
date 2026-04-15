@@ -87,7 +87,7 @@ export default function LoginPage() {
   return (
     <AuthLayout
       title="Welcome Back"
-      subtitle="Sign in to continue to Antigravity Chat."
+      subtitle="Sign in to continue to Chat Hive."
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-3">

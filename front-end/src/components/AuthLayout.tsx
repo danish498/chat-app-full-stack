@@ -46,7 +46,7 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
               <Terminal className="text-white w-6 h-6" />
             </div>
             <span className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400">
-              Antigravity Chat
+              Chat Hive
             </span>
           </motion.div>
 
@@ -100,7 +100,7 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
             transition={{ duration: 1, delay: 0.8 }}
             className="text-zinc-500 text-sm font-medium"
           >
-            © 2026 Antigravity Labs. All rights reserved.
+            © 2026 Chat Hive. All rights reserved.
           </motion.div>
         </div>
       </div>
@@ -122,7 +122,7 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
               <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
                 <Terminal className="text-white w-6 h-6" />
               </div>
-              <span className="text-xl font-bold tracking-tight">Antigravity</span>
+              <span className="text-xl font-bold tracking-tight">Chat Hive</span>
             </div>
           </motion.div>
 

@@ -59,7 +59,7 @@ export default function SignupPage() {
   return (
     <AuthLayout
       title="Create Account"
-      subtitle="Join Antigravity Chat today. Experience the speed."
+      subtitle="Join Chat Hive today. Experience the speed."
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">

@@ -12,10 +12,12 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: 1,
+  interactiveWidget: 'resizes-content',
 }
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { WebSocketProvider } from "@/context/WebSocketContext";
+import { Toaster } from "@/components/ui/sonner";
 
 export default function RootLayout({
   children,
@@ -24,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={GeistSans.className}>
+      <body className={`${GeistSans.className} h-full`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -33,6 +35,7 @@ export default function RootLayout({
         >
           <WebSocketProvider>
             {children}
+            <Toaster />
           </WebSocketProvider>
         </ThemeProvider>
       </body>

@@ -6,28 +6,92 @@ import {
   SendHorizontal,
   Smile,
   ThumbsUp,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useCallback } from "react";
 import { buttonVariants } from "./ui/button";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
-import { Message, loggedInUserData } from "@/app/data";
 import { Textarea } from "./ui/textarea";
 import { EmojiPicker } from "./emoji-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import mediaService from "@/services/media.service";
+import { toast } from "sonner";
 
 interface MessageBottombarProps {
-  sendMessage: (content: string) => void;
+  sendMessage: (
+    content: string,
+    options?: { fileUrl?: string; messageType?: "text" | "image" | "file" | "video" }
+  ) => void;
 }
 
-export const BottombarIcons = [{ icon: FileImage }, { icon: Paperclip }];
+export const BottombarIcons = [
+  { icon: FileImage, accept: "image/*", label: "Send Image", type: "image" as const },
+  { icon: Paperclip, accept: "video/*,application/pdf,*/*", label: "Attach File", type: "file" as const },
+];
 
 export default function MessageBottombar({
   sendMessage,
 }: MessageBottombarProps) {
   const [message, setMessage] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const handleFileChange = useCallback(
+    async (
+      event: React.ChangeEvent<HTMLInputElement>,
+      iconType: "image" | "file"
+    ) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      // Reset so the same file can be re-selected
+      event.target.value = "";
+
+      setIsUploading(true);
+
+      try {
+        let uploadResponse;
+
+        // Decide which endpoint to hit based on the icon slot and the actual
+        // MIME type of the chosen file.
+        const isVideo = file.type.startsWith("video/");
+        const isImage = file.type.startsWith("image/");
+
+        if (iconType === "image" && isImage) {
+          uploadResponse = await mediaService.uploadImage(file);
+        } else if (isVideo) {
+          uploadResponse = await mediaService.uploadVideo(file);
+        } else {
+          // Generic file — treat as image slot fallback or future /file endpoint
+          uploadResponse = await mediaService.uploadImage(file);
+        }
+
+        if (uploadResponse.success && uploadResponse.data?.url) {
+          const fileUrl = uploadResponse.data.url;
+          const messageType: "image" | "video" | "file" = isImage
+            ? "image"
+            : isVideo
+            ? "video"
+            : "file";
+
+          // Send a message whose content is the URL and whose type signals the
+          // media kind so the message renderer can display it correctly.
+          sendMessage(fileUrl, { fileUrl, messageType });
+        } else {
+          toast.error("Upload failed. Please try again.");
+        }
+      } catch (err) {
+        console.error("File upload error:", err);
+        toast.error("Upload failed. Please try again.");
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [sendMessage]
+  );
 
   const handleInputChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessage(event.target.value);
@@ -61,9 +125,42 @@ export default function MessageBottombar({
     }
   };
 
+  /** Renders file-picker buttons. Used in both the default bar and the popover. */
+  const renderFileButtons = () =>
+    BottombarIcons.map((icon, index) => (
+      <button
+        key={index}
+        type="button"
+        aria-label={icon.label}
+        disabled={isUploading}
+        onClick={() => fileInputRefs.current[index]?.click()}
+        className={cn(
+          buttonVariants({ variant: "ghost", size: "icon" }),
+          "h-9 w-9",
+          "dark:bg-muted dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-white",
+          isUploading && "opacity-50 cursor-not-allowed"
+        )}
+      >
+        {isUploading ? (
+          <Loader2 size={20} className="text-muted-foreground animate-spin" />
+        ) : (
+          <icon.icon size={20} className="text-muted-foreground" />
+        )}
+        <input
+          ref={(el) => {
+            fileInputRefs.current[index] = el;
+          }}
+          type="file"
+          accept={icon.accept}
+          className="hidden"
+          onChange={(e) => handleFileChange(e, icon.type)}
+        />
+      </button>
+    ));
+
   return (
     <div className="p-2 flex justify-between w-full items-center gap-2">
-      <div className="flex">
+      <div className="flex gap-1">
         <Popover>
           <PopoverTrigger asChild>
             <Link
@@ -77,12 +174,10 @@ export default function MessageBottombar({
               <PlusCircle size={20} className="text-muted-foreground" />
             </Link>
           </PopoverTrigger>
-          <PopoverContent 
-            side="top"
-            className="w-full p-2">
+          <PopoverContent side="top" className="w-full p-2">
             {message.trim() ? (
               <div className="flex gap-2">
-                <Link 
+                <Link
                   href="#"
                   className={cn(
                     buttonVariants({ variant: "ghost", size: "icon" }),
@@ -92,22 +187,10 @@ export default function MessageBottombar({
                 >
                   <Mic size={20} className="text-muted-foreground" />
                 </Link>
-                {BottombarIcons.map((icon, index) => (
-                  <Link
-                    key={index}
-                    href="#"
-                    className={cn(
-                      buttonVariants({ variant: "ghost", size: "icon" }),
-                      "h-9 w-9",
-                      "dark:bg-muted dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-white"
-                    )}
-                  >
-                    <icon.icon size={20} className="text-muted-foreground" />
-                  </Link>
-                ))}
+                {renderFileButtons()}
               </div>
             ) : (
-              <Link 
+              <Link
                 href="#"
                 className={cn(
                   buttonVariants({ variant: "ghost", size: "icon" }),
@@ -120,22 +203,9 @@ export default function MessageBottombar({
             )}
           </PopoverContent>
         </Popover>
+
         {!message.trim() && (
-          <div className="flex">
-            {BottombarIcons.map((icon, index) => (
-              <Link
-                key={index}
-                href="#"
-                className={cn(
-                  buttonVariants({ variant: "ghost", size: "icon" }),
-                  "h-9 w-9",
-                  "dark:bg-muted dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-white"
-                )}
-              >
-                <icon.icon size={20} className="text-muted-foreground" />
-              </Link>
-            ))}
-          </div>
+          <div className="flex gap-1">{renderFileButtons()}</div>
         )}
       </div>
 
@@ -166,12 +236,14 @@ export default function MessageBottombar({
             className=" w-full border rounded-full flex items-center h-9 resize-none overflow-hidden bg-background"
           ></Textarea>
           <div className="absolute right-2 bottom-0.5  ">
-            <EmojiPicker onChange={(value) => {
-              setMessage(message + value)
-              if (inputRef.current) {
-                inputRef.current.focus();
-              }
-            }} />
+            <EmojiPicker
+              onChange={(value) => {
+                setMessage(message + value);
+                if (inputRef.current) {
+                  inputRef.current.focus();
+                }
+              }}
+            />
           </div>
         </motion.div>
 

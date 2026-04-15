@@ -9,12 +9,15 @@ import useSWR, { mutate } from "swr";
 import chatService, { Chat as ChatData } from "@/services/chat.service";
 import authService, { User } from "@/services/auth.service";
 import userService from "@/services/user.service";
-import { Loader2 } from "lucide-react";
+import { Loader2, MessageSquare } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
 import useSWRMutation from "swr/mutation";
 import messageService from "@/services/message.service";
 import { CreateGroupModal } from "./CreateGroupModal";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { Button } from "./ui/button";
+import { ChatDetailsPanel } from "./ChatDetailsPanel";
+import { Sheet, SheetContent } from "./ui/sheet";
 
 interface ChatProps {
   defaultLayout: number[] | undefined;
@@ -27,18 +30,39 @@ export function Chat({
   defaultCollapsed = false,
   navCollapsedSize,
 }: ChatProps) {
+
+
   const {
     data: chats,
     error,
     isLoading: chatLoading,
   } = useSWR("user-chats", chatService.getChats);
+
+
+
+
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  const [selectedChatIdForDetails, setSelectedChatIdForDetails] = useState<string | null>(null);
 
+
+
+  const {
+    data: selectedChat,
+    error: selectedChatError,
+    isLoading: selectedChatLoading,
+  } = useSWR(
+    selectedChatIdForDetails ? ["get-chat-by-id", selectedChatIdForDetails] : null,
+    () => chatService.getChatById(selectedChatIdForDetails as string),
+  );
+
+
+
+  console.log({ selectedChat });
 
   const {
     data: searchResults,
@@ -83,10 +107,6 @@ export function Chat({
 
 
 
-
-
-
-
   const handleSelectedUser = async (user: UserData) => {
     setSelectedUser(user);
 
@@ -106,6 +126,7 @@ export function Chat({
 
   const handleSelectedChat = (chatId: string) => {
     setSelectedChatId(chatId);
+    setSelectedChatIdForDetails(null);
     const chat = chats?.data?.find((c) => c.id === chatId);
     if (chat) {
       setSelectedUser({
@@ -184,10 +205,26 @@ export function Chat({
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+
   const { data: currentUser } = useSWR("current-user", () => authService.getProfile());
 
+
+
+  const handleUserChatClick = (selectedChatId: string) => {
+    // setSelectedUser(user);
+    // setSelectedChatId(user.id);
+
+    setSelectedChatIdForDetails(selectedChatId);
+
+
+    // console.log('safsdafsadfsdafsa', user.id);
+
+  };
+
+
+
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden">
+    <div className="flex w-full bg-background overflow-hidden" style={{ height: '100dvh' }}>
       {/* Sidebar - Hidden on mobile if a user is selected */}
       <div
         className={cn(
@@ -239,6 +276,7 @@ export function Chat({
               chatType={chats?.data?.find(c => c.id === selectedChatId)?.type}
               isLoading={messageLoading}
               onBack={isMobile ? () => setSelectedUser(null) : undefined}
+              onUserClick={selectedChatId ? () => handleUserChatClick(selectedChatId) : undefined}
             />
           )
         ) : (
@@ -249,6 +287,51 @@ export function Chat({
           </div>
         )}
       </div>
+
+
+
+      {/* Chat Details Panel (3rd column) */}
+
+      {/* Mobile bottom sheet */}
+
+      {
+        isMobile && <div className="lg:hidden">
+          <Sheet
+            open={!!selectedChatIdForDetails}
+            onOpenChange={(open) => setSelectedChatIdForDetails(open ? selectedChatId : null)}
+          >
+            <SheetContent
+              side="bottom"
+              className="p-0 h-[85dvh] rounded-t-xl overflow-hidden"
+            >
+              <ChatDetailsPanel
+                chat={selectedChat?.data as any}
+                onClose={() => setSelectedChatIdForDetails(null)}
+              />
+            </SheetContent>
+          </Sheet>
+        </div>
+      }
+
+
+
+      {
+        selectedChatIdForDetails && (
+          <div
+            className={cn(
+              "hidden lg:flex h-full w-[320px] max-w-[380px] border-l",
+              !selectedUser && "opacity-60",
+            )}
+          >
+            <ChatDetailsPanel
+              chat={selectedChat?.data as any}
+              onClose={() => setSelectedChatIdForDetails(null)}
+            />
+          </div>
+        )
+      }
+
+
 
       <CreateGroupModal
         isOpen={isGroupModalOpen}

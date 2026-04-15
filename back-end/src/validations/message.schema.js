@@ -6,7 +6,7 @@ export const messageSchemas = {
     body: z.object({
       chatId: uuidSchema,
       content: z.string().min(1),
-      messageType: z.enum(["text", "image", "file"]).default("text"),
+      messageType: z.enum(["text", "image", "file", "audio", "video", "document"]).default("text"),
       replyToId: uuidSchema.optional(),
     }),
   }),

@@ -70,8 +70,16 @@
   * {
     @apply border-border;
   }
+  html {
+    /* Dynamic viewport height — shrinks when virtual keyboard opens on mobile Chrome */
+    height: 100%;
+    height: 100dvh;
+  }
   body {
     @apply bg-background text-foreground;
+    height: 100%;
+    /* Prevent iOS rubber-band bounce from causing layout jumps */
+    overscroll-behavior: none;
   }
 }
 

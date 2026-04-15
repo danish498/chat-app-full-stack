@@ -17,6 +17,7 @@ interface ConversationProps {
   chatType?: "direct" | "group";
   onBack?: () => void;
   isLoading?: boolean;
+  onUserClick?: () => void;
 }
 
 export function Conversation({
@@ -26,6 +27,7 @@ export function Conversation({
   chatType,
   onBack,
   isLoading,
+  onUserClick,
 }: ConversationProps) {
   const { mutate } = useSWRConfig();
   const sequenceRef = useRef<number>(0);
@@ -88,12 +90,19 @@ export function Conversation({
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [chatId]);
 
-  const sendMessage = async (content: string) => {
+  const sendMessage = async (
+    content: string,
+    options?: {
+      fileUrl?: string;
+      messageType?: "text" | "image" | "file" | "video";
+    }
+  ) => {
     if (!chatId) return;
 
     const optimisticId = `temp-${Date.now()}`;
+    const resolvedType = options?.messageType ?? "text";
 
     const optimisticMessage: Message = {
       id: optimisticId,
@@ -101,9 +110,10 @@ export function Conversation({
       chatId,
       isMe: true,
       createdAt: new Date().toISOString(),
+      messageType: resolvedType,
+      fileUrl: options?.fileUrl ?? null,
     } as Message;
 
-    // ✅ 1. Show instantly
     setMessages((prev) => [...prev, optimisticMessage]);
 
     try {
@@ -114,12 +124,13 @@ export function Conversation({
       let messageToSend: any = {
         chatId,
         content,
-        messageType: "text",
+        messageType: resolvedType,
+        fileUrl: options?.fileUrl ?? null,
         createdAt: optimisticMessage.createdAt,
       };
 
-      // Only encrypt for direct chats
-      if (chatType === "direct") {
+      // Only encrypt text messages in direct chats (media URLs are public CDN links)
+      if (chatType === "direct" && resolvedType === "text") {
         const {
           content: encryptedContent,
           nonce,
@@ -139,24 +150,19 @@ export function Conversation({
       const response = await messageService.sendMessage(messageToSend);
 
       if (response.success) {
-        // We keep the optimistic message in the UI, but we could update it with the real ID
-        // Note: The real message from server will have ciphertext,
-        // but we want to keep showing the plaintext optimistically.
         mutate(["messages", chatId], undefined, { revalidate: false });
       }
     } catch (error) {
       console.error("Failed to send message:", error);
-
-      // ❌ 3. Rollback if failed
       setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId));
     }
   };
 
   return (
-    <div className="flex flex-col justify-between w-full h-full bg-background/50 backdrop-blur-sm">
-      <MessageTopbar selectedUser={selectedUser} onBack={onBack} />
+    <div className="flex flex-col w-full h-full bg-background/50 backdrop-blur-sm">
+      <MessageTopbar selectedUser={selectedUser} onBack={onBack}  onUserClick={onUserClick} />
 
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         {isLoading || isDecrypting || !chatId ? (
           <MessageSkeleton />
         ) : (
@@ -164,7 +170,7 @@ export function Conversation({
         )}
       </div>
 
-      <div className="p-4 border-t bg-background/80 backdrop-blur-md">
+      <div className="p-4 border-t bg-background/80 backdrop-blur-md shrink-0">
         <MessageBottombar sendMessage={sendMessage} />
       </div>
     </div>

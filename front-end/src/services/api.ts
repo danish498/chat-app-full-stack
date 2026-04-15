@@ -7,6 +7,31 @@ const api = axios.create({
   },
 });
 
+export function getApiErrorMessage(error: unknown, fallback = 'Something went wrong') {
+  if (axios.isAxiosError(error)) {
+    const data: any = error.response?.data;
+    if (typeof data === 'string' && data.trim()) return data;
+    if (data?.message && typeof data.message === 'string') return data.message;
+    if (data?.error && typeof data.error === 'string') return data.error;
+
+    // Common validation formats: { errors: [{ message: "..." }]} or { errors: ["..."] }
+    const errors = data?.errors;
+    if (Array.isArray(errors) && errors.length > 0) {
+      const first = errors[0];
+      if (typeof first === 'string') return first;
+      if (first?.message && typeof first.message === 'string') return first.message;
+    }
+
+    if (error.message) return error.message;
+  }
+
+
+  console.log({error});
+
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
 // Add a request interceptor to include the auth token in headers
 api.interceptors.request.use(
   (config) => {

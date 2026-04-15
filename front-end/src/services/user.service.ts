@@ -4,12 +4,12 @@ import { User } from './auth.service';
 const userService = {
   getUsers: async (): Promise<User[]> => {
     const response = await api.get('/users');
-    return response.data;
+    return response.data?.data ?? response.data;
   },
 
   getUserById: async (id: string): Promise<User> => {
     const response = await api.get(`/users/${id}`);
-    return response.data;
+    return response.data?.data ?? response.data;
   },
 
   createUser: async (data: any): Promise<User> => {

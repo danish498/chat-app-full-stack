@@ -30,6 +30,26 @@ export interface ChatsResponse {
   message?: string;
 }
 
+export interface AddMemberResponse {
+  success: boolean;
+  data: any;
+  message?: string;
+}
+
+export interface ChatMemberSearchResult {
+  id: string;
+  username: string;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+  isAlreadyMember?: boolean;
+}
+
+export interface ChatMembersResponse {
+  success: boolean;
+  data: ChatMemberSearchResult[];
+  message?: string;
+}
+
 
 const chatService = {
   getChats: async (): Promise<ChatsResponse> => {
@@ -39,6 +59,19 @@ const chatService = {
 
   getChatById: async (id: string): Promise<SingleChatResponse> => {
     const response = await api.get(`/chats/${id}`);
+    return response.data;
+  },
+
+  addMember: async (chatId: string, userId: string, role: "admin" | "member" = "member"): Promise<AddMemberResponse> => {
+    const response = await api.post(`/chats/${chatId}/add-member`, { userId, role });
+    return response.data;
+  },
+
+  getChatMembers: async (chatId: string, search?: string): Promise<ChatMembersResponse> => {
+    const params = new URLSearchParams();
+    if (search && search.trim()) params.set("search", search.trim());
+    const qs = params.toString();
+    const response = await api.get(`/chats/${chatId}/members${qs ? `?${qs}` : ""}`);
     return response.data;
   },
 

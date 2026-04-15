@@ -6,6 +6,7 @@ import {
   updateChat,
   deleteChat,
   addMember,
+  getChatMembers,
 } from "../controllers/chat.controller.js";
 import { validate } from "../middleware/validate.js";
 import { chatSchemas } from "../validations/chat.schema.js";
@@ -39,5 +40,8 @@ router.post(
   validate(chatSchemas.addMember),
   addMember,
 );
+
+
+router.get("/:id/members", authenticateToken, validate(chatSchemas.getById), getChatMembers);
 
 export default router;

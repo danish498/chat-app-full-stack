@@ -124,7 +124,7 @@ export interface Message {
     content: string;
     nonce?: string;
     isEncrypted?: boolean;
-    messageType: "text" | "image" | "file";
+    messageType: "text" | "image" | "file" | "video";
     fileUrl: string | null;
     createdAt: string;
     isEdited: boolean;
