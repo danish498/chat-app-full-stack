@@ -132,9 +132,12 @@ const authenticate = (request) => {
     );
     const token = url.searchParams.get("token");
 
+    console.log("token", token);
+
     if (!token) return null;
 
     const decoded = jwt.verify(token, config.jwt.accessSecret);
+    console.log("decoded", decoded);
     return { userId: decoded.userId };
   } catch (error) {
     logger.error("[ws] auth failed:", error.message);
@@ -143,6 +146,7 @@ const authenticate = (request) => {
 };
 
 const onConnect = (socket, userId) => {
+  console.log("onConnsadfasfsafsfsect", socket, userId);
   const socketId = randomUUID();
   socket.socketId = socketId;
   socket.userId = userId;
@@ -151,6 +155,7 @@ const onConnect = (socket, userId) => {
   clients.set(socketId, socket);
 
   const isFirstSocket = !userSockets.has(userId);
+  console.log("isFirstSocket", isFirstSocket);
   if (isFirstSocket) {
     userSockets.set(userId, new Set());
   }
@@ -169,6 +174,8 @@ const onConnect = (socket, userId) => {
   sendJsonMessage(socket, { type: EVENTS.CONNECTION.CONNECT, socketId });
   logger.info(`[ws] connected  socketId=${socketId} userId=${userId}`);
 
+  console.log('asfsadfsdafsdafsafdsfsda', isFirstSocket)
+
   // Broadcast presence if this is the first connection for the user
   if (isFirstSocket) {
     broadcastToAll(
@@ -179,6 +186,17 @@ const onConnect = (socket, userId) => {
       },
       socketId,
     );
+  }
+
+  // Sync current presence state to the newly connected socket.
+  // Without this, the UI will only learn about `user:online` when the other user reconnects.
+  for (const onlineUserId of userSockets.keys()) {
+    if (onlineUserId === userId) continue;
+    sendJsonMessage(socket, {
+      type: EVENTS.PRESENCE.ONLINE,
+      userId: onlineUserId,
+      timestamp: new Date().toISOString(),
+    });
   }
 };
 
@@ -312,6 +330,8 @@ const attachWebSocketServer = (server) => {
   const wss = new WebSocketServer({ server });
 
   wss.on("connection", (socket, request) => {
+
+    console.log("requesadfsadfsdfasst", request);
     const user = authenticate(request);
     if (!user) {
       socket.close(4001, "Unauthorized");

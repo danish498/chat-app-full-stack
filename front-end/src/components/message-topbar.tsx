@@ -10,11 +10,19 @@ interface MessageTopbarProps {
   selectedUser: UserData;
   onBack?: () => void;
   onUserClick?: () => void;
+  isTyping?: boolean;
+  isOnline?: boolean;
 }
 
 export const TopbarIcons = [{ icon: Phone }, { icon: Video }];
 
-export default function MessageTopbar({ selectedUser, onBack, onUserClick }: MessageTopbarProps) {
+export default function MessageTopbar({
+  selectedUser,
+  onBack,
+  onUserClick,
+  isTyping,
+  isOnline,
+}: MessageTopbarProps) {
   return (
     <div className="w-full h-20 flex p-1 justify-between items-center border-b sticky top-0 z-10 bg-background/95 backdrop-blur-md shrink-0">
       <div className="flex items-center gap-1.5">
@@ -51,7 +59,9 @@ export default function MessageTopbar({ selectedUser, onBack, onUserClick }: Mes
           </Avatar>
           <div className="flex flex-col">
             <span className="font-medium">{selectedUser.name}</span>
-            <span className="text-xs">Active 2 mins ago</span>
+            <span className="text-xs">
+              {isTyping ? "Typing..." : isOnline ? "Online" : "Active 2 mins ago"}
+            </span>
           </div>
         </button>
       </div>

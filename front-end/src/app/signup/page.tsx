@@ -5,7 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Mail, Lock, User, Link as LucideLink, Terminal, ArrowRight } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  User,
+  Link as LucideLink,
+  Terminal,
+  ArrowRight,
+} from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import authService from "@/services/auth.service";
 import { apiFetch, setAccessToken } from "@/lib/apiClient";
@@ -43,7 +50,9 @@ export default function SignupPage() {
 
       router.push("/");
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || "Something went wrong");
+      setError(
+        err.response?.data?.message || err.message || "Something went wrong",
+      );
     } finally {
       setLoading(false);
     }
@@ -64,7 +73,9 @@ export default function SignupPage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-zinc-300 ml-1">Username</label>
+            <label className="text-sm font-semibold text-zinc-300 ml-1">
+              Username
+            </label>
             <div className="relative group">
               <Terminal className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-[#00A699] transition-colors" />
               <input
@@ -78,7 +89,9 @@ export default function SignupPage() {
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-zinc-300 ml-1">Display Name</label>
+            <label className="text-sm font-semibold text-zinc-300 ml-1">
+              Display Name
+            </label>
             <div className="relative group">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-[#00A699] transition-colors" />
               <input
@@ -94,7 +107,9 @@ export default function SignupPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-zinc-300 ml-1">Email</label>
+          <label className="text-sm font-semibold text-zinc-300 ml-1">
+            Email
+          </label>
           <div className="relative group">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-[#00A699] transition-colors" />
             <input
@@ -109,7 +124,9 @@ export default function SignupPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-zinc-300 ml-1">Password</label>
+          <label className="text-sm font-semibold text-zinc-300 ml-1">
+            Password
+          </label>
           <div className="relative group">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-[#00A699] transition-colors" />
             <input
@@ -124,7 +141,9 @@ export default function SignupPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-zinc-300 ml-1">Avatar URL (Optional)</label>
+          <label className="text-sm font-semibold text-zinc-300 ml-1">
+            Avatar URL (Optional)
+          </label>
           <div className="relative group">
             <LucideLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-[#00A699] transition-colors" />
             <input
@@ -169,13 +188,14 @@ export default function SignupPage() {
       <div className="mt-8 text-center border-t border-zinc-900 pt-8">
         <p className="text-zinc-500 font-medium text-sm">
           Already have an account?{" "}
-          <Link href="/login" className="text-[#00A699] hover:text-[#00cebd] font-bold transition-colors">
+          <Link
+            href="/login"
+            className="text-[#00A699] hover:text-[#00cebd] font-bold transition-colors"
+          >
             Log In
           </Link>
         </p>
       </div>
-
     </AuthLayout>
   );
 }
-

@@ -27,7 +27,7 @@ import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { useTheme } from "next-themes";
 import authService from "@/services/auth.service";
-import { useWebSocketContext } from "@/context/WebSocketContext";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import {
   ACCENT_THEMES,
   applyAccentTheme,
@@ -66,11 +66,13 @@ export function Sidebar({
   searchLoading,
   searchPerformed,
   currentUser,
-  onCreateGroupClick
+  onCreateGroupClick,
 }: SidebarProps) {
   const { theme, setTheme } = useTheme();
-  const ws = useWebSocketContext();
-  const [accentId, setAccentId] = React.useState<string>(() => getStoredAccentThemeId());
+  const ws = useWebSocket();
+  const [accentId, setAccentId] = React.useState<string>(() =>
+    getStoredAccentThemeId(),
+  );
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -82,7 +84,6 @@ export function Sidebar({
     storeAccentThemeId(accentId);
   }, [accentId]);
 
-
   const getChatTypeLabel = (type: SidebarProps["links"][number]["type"]) => {
     if (!type) return "Direct";
     const normalized = String(type).toLowerCase();
@@ -92,9 +93,7 @@ export function Sidebar({
   };
 
   return (
-    <div
-      className="relative group flex flex-col h-full bg-background"
-    >
+    <div className="relative group flex flex-col h-full bg-background">
       <div className="flex justify-between px-4 py-3 items-center bg-zinc-50 dark:bg-zinc-800/50 h-20 border-b">
         <div className="flex gap-2 items-center">
           <p className="font-bold text-xl">Chat Hive</p>
@@ -104,7 +103,7 @@ export function Sidebar({
           <div
             className={cn(
               buttonVariants({ variant: "ghost", size: "icon" }),
-              "h-8 w-8 cursor-pointer rounded-full"
+              "h-8 w-8 cursor-pointer rounded-full",
             )}
           >
             <CircleDashed size={20} className="text-muted-foreground" />
@@ -114,7 +113,7 @@ export function Sidebar({
             onClick={onCreateGroupClick}
             className={cn(
               buttonVariants({ variant: "ghost", size: "icon" }),
-              "h-8 w-8 cursor-pointer rounded-full"
+              "h-8 w-8 cursor-pointer rounded-full",
             )}
           >
             <Users size={20} className="text-muted-foreground" />
@@ -123,7 +122,7 @@ export function Sidebar({
           <div
             className={cn(
               buttonVariants({ variant: "ghost", size: "icon" }),
-              "h-8 w-8 cursor-pointer rounded-full"
+              "h-8 w-8 cursor-pointer rounded-full",
             )}
           >
             <MoreHorizontal size={20} className="text-muted-foreground" />
@@ -131,10 +130,15 @@ export function Sidebar({
 
           <Avatar className="h-8 w-8 cursor-pointer border ml-1">
             <AvatarImage
-              src={currentUser?.avatarUrl || "https://avatars.githubusercontent.com/u/79553845"}
+              src={
+                currentUser?.avatarUrl ||
+                "https://avatars.githubusercontent.com/u/79553845"
+              }
               alt={currentUser?.username || "Me"}
             />
-            <AvatarFallback>{currentUser?.username?.[0]?.toUpperCase() || "U"}</AvatarFallback>
+            <AvatarFallback>
+              {currentUser?.username?.[0]?.toUpperCase() || "U"}
+            </AvatarFallback>
           </Avatar>
         </div>
       </div>
@@ -149,7 +153,12 @@ export function Sidebar({
             onChange={(e) => onSearch(e.target.value)}
           />
         </div>
-        <div className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8")}>
+        <div
+          className={cn(
+            buttonVariants({ variant: "ghost", size: "icon" }),
+            "h-8 w-8",
+          )}
+        >
           <Filter size={18} className="text-muted-foreground" />
         </div>
       </div>
@@ -160,60 +169,82 @@ export function Sidebar({
             <p className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Search Results
             </p>
-            {searchResults && searchResults.length > 0 ? (
-              searchResults.map((user, index) => (
-                <div
-                  key={`search-${user.id}`}
-                  onClick={() => {
-                    onSelectUser({
-                      id: user.id,
-                      name: user.displayName || user.username,
-                      avatar: user.avatarUrl || "https://avatars.githubusercontent.com/u/79553845",
-                      messages: [],
-                    } as any);
-                  }}
-                  className={cn(
-                    "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors mx-2 rounded-lg mb-1",
-                    selectedUser?.id === user.id 
-                      ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" 
-                      : "hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
-                  )}
-                >
-                  <Avatar className="h-12 w-12 shrink-0">
-                    <AvatarImage
-                      src={user.avatarUrl || "https://avatars.githubusercontent.com/u/79553845"}
-                      alt={user.username}
-                      className="object-cover"
-                    />
-                    <AvatarFallback>{(user.displayName || user.username)[0]}</AvatarFallback>
-                  </Avatar>
-                  <div className={cn(
-                    "flex flex-col flex-1 min-w-0 pb-3 h-full justify-center",
-                    selectedUser?.id !== user.id && "border-b border-zinc-100 dark:border-zinc-800"
-                  )}>
-                    <div className="flex justify-between items-baseline">
-                      <span className="font-medium text-base truncate">{user.displayName || user.username}</span>
-                      <span className={cn(
-                        "text-[10px] uppercase tracking-wider",
-                        selectedUser?.id === user.id ? "text-primary-foreground/70" : "text-muted-foreground"
-                      )}>User</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className={cn(
-                        "text-xs truncate",
-                        selectedUser?.id === user.id ? "text-primary-foreground/80" : "text-zinc-500 dark:text-zinc-400"
-                      )}>
-                        @{user.username}
-                      </span>
+            {searchResults && searchResults.length > 0
+              ? searchResults.map((user, index) => (
+                  <div
+                    key={`search-${user.id}`}
+                    onClick={() => {
+                      onSelectUser({
+                        id: user.id,
+                        name: user.displayName || user.username,
+                        avatar:
+                          user.avatarUrl ||
+                          "https://avatars.githubusercontent.com/u/79553845",
+                        messages: [],
+                      } as any);
+                    }}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors mx-2 rounded-lg mb-1",
+                      selectedUser?.id === user.id
+                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                        : "hover:bg-zinc-100 dark:hover:bg-zinc-800/50",
+                    )}
+                  >
+                    <Avatar className="h-12 w-12 shrink-0">
+                      <AvatarImage
+                        src={
+                          user.avatarUrl ||
+                          "https://avatars.githubusercontent.com/u/79553845"
+                        }
+                        alt={user.username}
+                        className="object-cover"
+                      />
+                      <AvatarFallback>
+                        {(user.displayName || user.username)[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div
+                      className={cn(
+                        "flex flex-col flex-1 min-w-0 pb-3 h-full justify-center",
+                        selectedUser?.id !== user.id &&
+                          "border-b border-zinc-100 dark:border-zinc-800",
+                      )}
+                    >
+                      <div className="flex justify-between items-baseline">
+                        <span className="font-medium text-base truncate">
+                          {user.displayName || user.username}
+                        </span>
+                        <span
+                          className={cn(
+                            "text-[10px] uppercase tracking-wider",
+                            selectedUser?.id === user.id
+                              ? "text-primary-foreground/70"
+                              : "text-muted-foreground",
+                          )}
+                        >
+                          User
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span
+                          className={cn(
+                            "text-xs truncate",
+                            selectedUser?.id === user.id
+                              ? "text-primary-foreground/80"
+                              : "text-zinc-500 dark:text-zinc-400",
+                          )}
+                        >
+                          @{user.username}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
-            ) : !searchLoading && (
-              <div className="p-4 text-center text-sm text-muted-foreground">
-                No users found
-              </div>
-            )}
+                ))
+              : !searchLoading && (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    No users found
+                  </div>
+                )}
           </div>
         ) : (
           <div className="flex flex-col">
@@ -225,9 +256,9 @@ export function Sidebar({
                 }}
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors mx-2 rounded-lg mb-1",
-                  link.variant === "grey" 
-                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" 
-                    : "hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
+                  link.variant === "grey"
+                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                    : "hover:bg-zinc-100 dark:hover:bg-zinc-800/50",
                 )}
               >
                 <Avatar className="h-12 w-12 shrink-0">
@@ -238,41 +269,61 @@ export function Sidebar({
                   />
                   <AvatarFallback>{link?.name?.[0] || "U"}</AvatarFallback>
                 </Avatar>
-                <div className={cn(
-                  "flex flex-col flex-1 min-w-0 pb-3 h-full justify-center",
-                  link.variant !== "grey" && "border-b border-zinc-100 dark:border-zinc-800"
-                )}>
+                <div
+                  className={cn(
+                    "flex flex-col flex-1 min-w-0 pb-3 h-full justify-center",
+                    link.variant !== "grey" &&
+                      "border-b border-zinc-100 dark:border-zinc-800",
+                  )}
+                >
                   <div className="flex justify-between items-center gap-2">
-                    <span className="font-semibold text-[15px] truncate w-1/2">{link.name}</span>
+                    <span className="font-semibold text-[15px] truncate w-1/2">
+                      {link.name}
+                    </span>
                     <div className="flex flex-col items-center gap-2 shrink-0">
-                      <span className={cn(
-                        "text-[10px] px-2 py-0.5 rounded-full border",
-                        link.variant === "grey" 
-                          ? "bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20" 
-                          : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 border-zinc-200/70 dark:border-zinc-700/70"
-                      )}>
+                      <span
+                        className={cn(
+                          "text-[10px] px-2 py-0.5 rounded-full border",
+                          link.variant === "grey"
+                            ? "bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20"
+                            : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 border-zinc-200/70 dark:border-zinc-700/70",
+                        )}
+                      >
                         {getChatTypeLabel(link.type)}
                       </span>
-                      <span className={cn(
-                        "text-[11px]",
-                        link.variant === "grey" ? "text-primary-foreground/70" : "text-muted-foreground"
-                      )}>
-                        {link.messages.length > 0 ? (
-                          new Date(link.messages[link.messages.length - 1].createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                        ) : (
-                          "12:45"
+                      <span
+                        className={cn(
+                          "text-[11px]",
+                          link.variant === "grey"
+                            ? "text-primary-foreground/70"
+                            : "text-muted-foreground",
                         )}
+                      >
+                        {link.messages.length > 0
+                          ? new Date(
+                              link.messages[link.messages.length - 1].createdAt,
+                            ).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "12:45"}
                       </span>
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className={cn(
-                      "text-[13px] truncate pr-2",
-                      link.variant === "grey" ? "text-primary-foreground/80" : "text-zinc-500 dark:text-zinc-400"
-                    )}>
+                    <span
+                      className={cn(
+                        "text-[13px] truncate pr-2",
+                        link.variant === "grey"
+                          ? "text-primary-foreground/80"
+                          : "text-zinc-500 dark:text-zinc-400",
+                      )}
+                    >
                       {link.messages.length > 0 ? (
                         <>
-                          {link.messages[link.messages.length - 1].isMe ? "You: " : ""}
+                          {link.messages[link.messages.length - 1].isMe
+                            ? "You: "
+                            : ""}
                           {link.messages[link.messages.length - 1].content}
                         </>
                       ) : (
@@ -347,7 +398,9 @@ export function Sidebar({
 
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-semibold">Accent color</div>
-                  <div className="text-xs text-muted-foreground">Applies instantly</div>
+                  <div className="text-xs text-muted-foreground">
+                    Applies instantly
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-5 gap-2">

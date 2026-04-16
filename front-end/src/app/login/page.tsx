@@ -42,7 +42,6 @@ export default function LoginPage() {
   //   }
   // };
 
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
@@ -50,15 +49,16 @@ export default function LoginPage() {
     });
   };
 
-
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
     try {
-      const response = await authService.login(formData.email, formData.password);
+      const response = await authService.login(
+        formData.email,
+        formData.password,
+      );
 
       if (response.data.accessToken) {
         // ── CHANGE 1: store token in memory, not localStorage ──
@@ -78,7 +78,9 @@ export default function LoginPage() {
         throw new Error("Invalid response from server");
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || "Something went wrong");
+      setError(
+        err.response?.data?.message || err.message || "Something went wrong",
+      );
     } finally {
       setLoading(false);
     }
@@ -91,7 +93,9 @@ export default function LoginPage() {
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-3">
-          <label className="text-sm font-semibold text-zinc-300 ml-1">Email Address</label>
+          <label className="text-sm font-semibold text-zinc-300 ml-1">
+            Email Address
+          </label>
           <div className="relative group">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500 group-focus-within:text-[#00A699] transition-colors" />
             <input
@@ -107,8 +111,15 @@ export default function LoginPage() {
 
         <div className="space-y-3">
           <div className="flex justify-between items-center px-1">
-            <label className="text-sm font-semibold text-zinc-300">Password</label>
-            <Link href="#" className="text-xs text-[#00A699] hover:text-[#00cebd] font-bold transition-colors">Forgot?</Link>
+            <label className="text-sm font-semibold text-zinc-300">
+              Password
+            </label>
+            <Link
+              href="#"
+              className="text-xs text-[#00A699] hover:text-[#00cebd] font-bold transition-colors"
+            >
+              Forgot?
+            </Link>
           </div>
           <div className="relative group">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500 group-focus-within:text-[#00A699] transition-colors" />
@@ -155,13 +166,14 @@ export default function LoginPage() {
       <div className="mt-12 text-center">
         <p className="text-zinc-500 font-medium">
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-[#00A699] hover:text-[#00cebd] font-bold transition-colors">
+          <Link
+            href="/signup"
+            className="text-[#00A699] hover:text-[#00cebd] font-bold transition-colors"
+          >
             Create Account
           </Link>
         </p>
       </div>
-
     </AuthLayout>
   );
 }
-

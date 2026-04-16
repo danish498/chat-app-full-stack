@@ -57,7 +57,6 @@ export function Chat({
     () => chatService.getChatById(selectedChatIdForDetails as string),
   );
 
-
   const {
     data: searchResults,
     isLoading: searchLoading,

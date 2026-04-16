@@ -9,6 +9,7 @@ import { useSWRConfig } from "swr";
 import { encryptMessage, decryptMessage } from "@/lib/e2ee";
 import { apiFetch } from "@/lib/apiClient";
 import authService from "@/services/auth.service";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 interface ConversationProps {
   chatId: string | null;
@@ -32,6 +33,9 @@ export function Conversation({
   onUserClick,
 }: ConversationProps) {
   const { mutate } = useSWRConfig();
+  const [isOnline, setIsOnline] = React.useState(false);
+  const [isOtherTyping, setIsOtherTyping] = React.useState(false);
+
   const [messagesState, setMessages] = React.useState<Message[]>([]);
   const [isDecrypting, setIsDecrypting] = React.useState(false);
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
@@ -71,6 +75,132 @@ export function Conversation({
     },
     [chatType, selectedUser.id],
   );
+
+  const handleWsMessage = React.useCallback(
+    async (msg: any) => {
+      if (!msg?.type) return;
+
+      console.log({msg});
+
+      // Messages
+      if (msg.type === "message:receive") {
+        const incoming: Message | undefined = msg?.data?.chatId
+          ? msg.data
+          : msg?.data ?? undefined;
+        if (!incoming) return;
+        if (!chatId || incoming.chatId !== chatId) return;
+
+        try {
+          const [decrypted] = await decryptBatch([incoming]);
+          const currentUser = authService.getCurrentUser();
+          const isMe = currentUser
+            ? decrypted.senderId === currentUser.id
+            : false;
+
+          const finalized: Message = { ...decrypted, isMe };
+
+          setMessages((prev) => {
+            const byIdIndex = finalized.id
+              ? prev.findIndex((m) => m.id === finalized.id)
+              : -1;
+            if (byIdIndex >= 0) {
+              const copy = [...prev];
+              copy[byIdIndex] = finalized;
+              return copy;
+            }
+
+            const tempIndex = prev.findIndex(
+              (m) =>
+                m.id?.startsWith("temp-") &&
+                ((m.createdAt &&
+                  finalized.createdAt &&
+                  m.createdAt === finalized.createdAt) ||
+                  (m.content === finalized.content &&
+                    m.messageType === finalized.messageType &&
+                    m.fileUrl === finalized.fileUrl)),
+            );
+
+            if (tempIndex >= 0) {
+              const copy = [...prev];
+              copy[tempIndex] = { ...finalized, id: finalized.id };
+              return copy;
+            }
+
+            return [...prev, finalized];
+          });
+
+          mutate("user-chats");
+        } catch (err) {
+          console.error("Failed to handle WS incoming message:", err);
+        }
+      }
+
+      if (msg.type === "user:online") {
+        // Chat type gating happens elsewhere; presence should work even if chatType
+        // is still being resolved on initial render.
+        if (String(msg.userId) === String(selectedUser.id)) setIsOnline(true);
+      }
+
+      if (msg.type === "user:offline") {
+        if (String(msg.userId) === String(selectedUser.id)) setIsOnline(false);
+      }
+
+      // Typing (direct chats only)
+      if (chatType !== "direct") return;
+
+      if (msg.type === "typing:start") {
+        const otherTypingUserId = msg.userId;
+        const otherChatId = msg.chatId;
+        if (!chatId) return;
+        if (otherChatId !== chatId) return;
+        if (String(otherTypingUserId) === String(selectedUser.id)) setIsOtherTyping(true);
+      }
+
+      if (msg.type === "typing:stop") {
+        const otherTypingUserId = msg.userId;
+        const otherChatId = msg.chatId;
+        if (!chatId) return;
+        if (otherChatId !== chatId) return;
+        if (String(otherTypingUserId) === String(selectedUser.id)) setIsOtherTyping(false);
+      }
+    },
+    [chatId, chatType, selectedUser.id, decryptBatch, mutate],
+  );
+
+  const { status: wsStatus, sendMessage: wsSendMessage } = useWebSocket(
+    handleWsMessage,
+  );
+
+  const emitTypingStart = React.useCallback(() => {
+    if (!chatId) return;
+    wsSendMessage("typing:start", { chatId });
+  }, [chatId, wsSendMessage]);
+
+  const emitTypingStop = React.useCallback(() => {
+    if (!chatId) return;
+    wsSendMessage("typing:stop", { chatId });
+  }, [chatId, wsSendMessage]);
+
+  // Join the WS room for this chat and leave it on cleanup.
+  useEffect(() => {
+    if (!chatId) return;
+    if (wsStatus !== "connected") return;
+
+    wsSendMessage("room:join", { room: chatId });
+
+    return () => {
+      // Make sure typing doesn't get "stuck" for other users.
+      wsSendMessage("typing:stop", { chatId });
+      wsSendMessage("room:leave", { room: chatId });
+      setIsOtherTyping(false);
+    };
+  }, [chatId, wsStatus, wsSendMessage]);
+
+  // Reset presence/typing when switching chats.
+  useEffect(() => {
+    setIsOtherTyping(false);
+    setIsOnline(false);
+  }, [chatId, chatType, selectedUser.id]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -217,7 +347,13 @@ export function Conversation({
 
   return (
     <div className="flex flex-col w-full h-full bg-background/50 backdrop-blur-sm">
-      <MessageTopbar selectedUser={selectedUser} onBack={onBack} onUserClick={onUserClick} />
+      <MessageTopbar
+        selectedUser={selectedUser}
+        onBack={onBack}
+        onUserClick={onUserClick}
+        isTyping={isOtherTyping}
+        isOnline={isOnline}
+      />
 
       <div className="flex-1 min-h-0 overflow-hidden">
         {isLoading || isDecrypting || !chatId ? (
@@ -239,7 +375,11 @@ export function Conversation({
       </div>
 
       <div className="p-4 border-t bg-background/80 backdrop-blur-md shrink-0">
-        <MessageBottombar sendMessage={sendMessage} />
+        <MessageBottombar
+          sendMessage={sendMessage}
+          onTypingStart={emitTypingStart}
+          onTypingStop={emitTypingStop}
+        />
       </div>
     </div>
   );

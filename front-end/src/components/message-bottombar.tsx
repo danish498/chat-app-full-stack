@@ -24,6 +24,8 @@ interface MessageBottombarProps {
     content: string,
     options?: { fileUrl?: string; messageType?: "text" | "image" | "file" | "video" }
   ) => void;
+  onTypingStart?: () => void;
+  onTypingStop?: () => void;
 }
 
 export const BottombarIcons = [
@@ -33,11 +35,33 @@ export const BottombarIcons = [
 
 export default function MessageBottombar({
   sendMessage,
+  onTypingStart,
+  onTypingStop,
 }: MessageBottombarProps) {
   const [message, setMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isTypingRef = useRef(false);
+
+  const triggerTypingStart = React.useCallback(() => {
+    if (isTypingRef.current) return;
+    isTypingRef.current = true;
+    onTypingStart?.();
+  }, [onTypingStart]);
+
+  const triggerTypingStop = React.useCallback(() => {
+    if (!isTypingRef.current) return;
+    isTypingRef.current = false;
+    onTypingStop?.();
+  }, [onTypingStop]);
+
+  React.useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, []);
 
   const handleFileChange = useCallback(
     async (
@@ -80,6 +104,7 @@ export default function MessageBottombar({
           // Send a message whose content is the URL and whose type signals the
           // media kind so the message renderer can display it correctly.
           sendMessage(fileUrl, { fileUrl, messageType });
+            triggerTypingStop();
         } else {
           toast.error("Upload failed. Please try again.");
         }
@@ -90,22 +115,52 @@ export default function MessageBottombar({
         setIsUploading(false);
       }
     },
-    [sendMessage]
+    [sendMessage, triggerTypingStop]
   );
 
   const handleInputChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setMessage(event.target.value);
+    const nextValue = event.target.value;
+    setMessage(nextValue);
+
+    const hasText = nextValue.trim().length > 0;
+
+    if (!hasText) {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+      triggerTypingStop();
+      return;
+    }
+
+    triggerTypingStart();
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      triggerTypingStop();
+      typingTimeoutRef.current = null;
+    }, 2000);
   };
 
   const handleThumbsUp = () => {
     sendMessage("👍");
     setMessage("");
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    triggerTypingStop();
   };
 
   const handleSend = () => {
     if (message.trim()) {
       sendMessage(message.trim());
       setMessage("");
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+      triggerTypingStop();
 
       if (inputRef.current) {
         inputRef.current.focus();

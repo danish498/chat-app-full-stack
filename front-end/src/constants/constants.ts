@@ -4,18 +4,15 @@ export const MAX_RECONNECT_DELAY = 30000;
 export const RECONNECT_ATTEMPTS = 5;
 
 export const WS_EVENTS = {
-  CONNECT: 'connect',
-  DISCONNECT: 'disconnect',
-  MESSAGE: 'message',
-  ERROR: 'error',
-  JOIN_CHAT: 'join_chat',
-  LEAVE_CHAT: 'leave_chat',
-  TYPING: 'typing',
-  STOP_TYPING: 'stop_typing',
-  NEW_MESSAGE: 'new_message',
-  MESSAGE_RECEIVED: 'message_received',
-  MESSAGE_READ: 'message_read',
-  USER_STATUS: 'user_status',
+  // Must match backend's WebSocket event names
+  PING: "ping",
+  JOIN_ROOM: "room:join",
+  LEAVE_ROOM: "room:leave",
+  TYPING_START: "typing:start",
+  TYPING_STOP: "typing:stop",
+  MESSAGE_RECEIVE: "message:receive",
+  USER_ONLINE: "user:online",
+  USER_OFFLINE: "user:offline",
 } as const;
 
 export type WSEventType = typeof WS_EVENTS[keyof typeof WS_EVENTS];
