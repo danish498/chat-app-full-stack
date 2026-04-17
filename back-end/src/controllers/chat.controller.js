@@ -52,6 +52,8 @@ export const getChats = async (req, res, next) => {
         userName: users.username,
         displayName: users.displayName,
         userAvatar: users.avatarUrl,
+        lastSeen: users.lastSeen,
+        status: users.status
       })
       .from(chats)
       .innerJoin(chatParticipants, eq(chatParticipants.chatId, chats.id))
@@ -100,6 +102,8 @@ export const getChats = async (req, res, next) => {
           username: row.userName,
           displayName: row.displayName,
           avatarUrl: row.userAvatar,
+          lastSeen: row.lastSeen,
+          status: row.status,
         };
       }
     }
@@ -205,6 +209,7 @@ export const getChatById = async (req, res, next) => {
         username: users.username,
         displayName: users.displayName,
         avatarUrl: users.avatarUrl,
+        lastSeen: users.lastSeen,
 
         role: chatParticipants.role,
         joinedAt: chatParticipants.joinedAt,

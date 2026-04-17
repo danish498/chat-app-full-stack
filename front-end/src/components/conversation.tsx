@@ -10,6 +10,7 @@ import { encryptMessage, decryptMessage } from "@/lib/e2ee";
 import { apiFetch } from "@/lib/apiClient";
 import authService from "@/services/auth.service";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { WS_EVENTS } from "@/constants/constants";
 
 interface ConversationProps {
   chatId: string | null;
@@ -34,6 +35,9 @@ export function Conversation({
 }: ConversationProps) {
   const { mutate } = useSWRConfig();
   const [isOnline, setIsOnline] = React.useState(false);
+  const [lastSeenOverride, setLastSeenOverride] = React.useState<string | null>(
+    null,
+  );
   const [isOtherTyping, setIsOtherTyping] = React.useState(false);
 
   const [messagesState, setMessages] = React.useState<Message[]>([]);
@@ -42,6 +46,12 @@ export function Conversation({
   const [nextCursor, setNextCursor] = React.useState<string | null>(null);
   const [hasMore, setHasMore] = React.useState(false);
   const listRef = React.useRef<HTMLDivElement>(null);
+  const selectedUserId = String(selectedUser.id);
+
+  const isSelectedUser = React.useCallback(
+    (id: string | number | undefined | null) => String(id) === selectedUserId,
+    [selectedUserId],
+  );
 
   const decryptBatch = React.useCallback(
     async (batch: Message[]) => {
@@ -80,13 +90,11 @@ export function Conversation({
     async (msg: any) => {
       if (!msg?.type) return;
 
-      console.log({msg});
-
       // Messages
       if (msg.type === "message:receive") {
         const incoming: Message | undefined = msg?.data?.chatId
           ? msg.data
-          : msg?.data ?? undefined;
+          : (msg?.data ?? undefined);
         if (!incoming) return;
         if (!chatId || incoming.chatId !== chatId) return;
 
@@ -138,11 +146,33 @@ export function Conversation({
       if (msg.type === "user:online") {
         // Chat type gating happens elsewhere; presence should work even if chatType
         // is still being resolved on initial render.
-        if (String(msg.userId) === String(selectedUser.id)) setIsOnline(true);
+        if (isSelectedUser(msg.userId)) setIsOnline(true);
       }
 
       if (msg.type === "user:offline") {
-        if (String(msg.userId) === String(selectedUser.id)) setIsOnline(false);
+        if (isSelectedUser(msg.userId)) {
+          setIsOnline(false);
+          setLastSeenOverride(new Date().toISOString());
+        }
+      }
+
+      if (msg.type === WS_EVENTS.PRESENCE_SNAPSHOT) {
+        const requestedUserId = msg.userId;
+        if (!requestedUserId) return;
+        if (!isSelectedUser(requestedUserId)) return;
+
+        const onlineFromSnapshot =
+          typeof msg.isOnline === "boolean"
+            ? msg.isOnline
+            : Array.isArray(msg.onlineUserIds) &&
+              msg.onlineUserIds.some(
+                (id: string) => isSelectedUser(id),
+              );
+
+        setIsOnline(Boolean(onlineFromSnapshot));
+        if (!onlineFromSnapshot) {
+          setLastSeenOverride((prev) => prev ?? new Date().toISOString());
+        }
       }
 
       // Typing (direct chats only)
@@ -153,7 +183,8 @@ export function Conversation({
         const otherChatId = msg.chatId;
         if (!chatId) return;
         if (otherChatId !== chatId) return;
-        if (String(otherTypingUserId) === String(selectedUser.id)) setIsOtherTyping(true);
+        if (isSelectedUser(otherTypingUserId))
+          setIsOtherTyping(true);
       }
 
       if (msg.type === "typing:stop") {
@@ -161,15 +192,15 @@ export function Conversation({
         const otherChatId = msg.chatId;
         if (!chatId) return;
         if (otherChatId !== chatId) return;
-        if (String(otherTypingUserId) === String(selectedUser.id)) setIsOtherTyping(false);
+        if (isSelectedUser(otherTypingUserId))
+          setIsOtherTyping(false);
       }
     },
-    [chatId, chatType, selectedUser.id, decryptBatch, mutate],
+    [chatId, chatType, isSelectedUser, decryptBatch, mutate],
   );
 
-  const { status: wsStatus, sendMessage: wsSendMessage } = useWebSocket(
-    handleWsMessage,
-  );
+  const { status: wsStatus, sendMessage: wsSendMessage } =
+    useWebSocket(handleWsMessage);
 
   const emitTypingStart = React.useCallback(() => {
     if (!chatId) return;
@@ -200,7 +231,34 @@ export function Conversation({
   useEffect(() => {
     setIsOtherTyping(false);
     setIsOnline(false);
+    setLastSeenOverride(null);
   }, [chatId, chatType, selectedUser.id]);
+
+  useEffect(() => {
+    if (chatType !== "direct") return;
+    if (wsStatus !== "connected") return;
+    if (!selectedUser?.id) return;
+
+    const requestPresenceSnapshot = () => {
+      wsSendMessage(WS_EVENTS.PRESENCE_SYNC, { userId: String(selectedUser.id) });
+    };
+
+    requestPresenceSnapshot();
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        requestPresenceSnapshot();
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+
+    return () => {
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+    };
+  }, [chatType, wsStatus, selectedUser?.id, wsSendMessage]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -232,7 +290,7 @@ export function Conversation({
     return () => {
       isCancelled = true;
     };
-  }, [chatId]);
+  }, [chatId, messages, initialNextCursor, decryptBatch]);
 
   const loadOlder = React.useCallback(async () => {
     if (!chatId) return;
@@ -245,7 +303,11 @@ export function Conversation({
 
     setIsLoadingMore(true);
     try {
-      const res = await messageService.getMessagesByChatId(chatId, nextCursor, 15);
+      const res = await messageService.getMessagesByChatId(
+        chatId,
+        nextCursor,
+        15,
+      );
       const batch = res.data ?? [];
       if (!batch.length) {
         setHasMore(false);
@@ -284,7 +346,7 @@ export function Conversation({
     options?: {
       fileUrl?: string;
       messageType?: "text" | "image" | "file" | "video";
-    }
+    },
   ) => {
     if (!chatId) return;
 
@@ -348,7 +410,12 @@ export function Conversation({
   return (
     <div className="flex flex-col w-full h-full bg-background/50 backdrop-blur-sm">
       <MessageTopbar
-        selectedUser={selectedUser}
+        selectedUser={
+          {
+            ...selectedUser,
+            lastSeen: lastSeenOverride || selectedUser.lastSeen,
+          } as any
+        }
         onBack={onBack}
         onUserClick={onUserClick}
         isTyping={isOtherTyping}

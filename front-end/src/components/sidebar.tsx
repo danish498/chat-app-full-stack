@@ -20,7 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
-import { Message, UserData, userData } from "@/app/data";
+import { Message, UserData } from "@/app/data";
 import { User } from "@/services/auth.service";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
@@ -43,6 +43,8 @@ interface SidebarProps {
     avatar: string;
     variant: "grey" | "ghost";
     type: "group" | "direct" | (string & {});
+    status?: string | null;
+    lastSeen?: string | null;
   }[];
   isCollapsed?: boolean;
   onSelectUser: (user: UserData) => void;
@@ -75,6 +77,18 @@ export function Sidebar({
   );
   const [mounted, setMounted] = React.useState(false);
 
+  const mapUserToSidebarUser = React.useCallback(
+    (user: User): UserData =>
+      ({
+        id: user.id,
+        name: user.displayName || user.username,
+        lastSeen: user.lastSeen,
+        avatar: user.avatarUrl || "https://avatars.githubusercontent.com/u/79553845",
+        messages: [],
+      }) as any,
+    [],
+  );
+
   React.useEffect(() => {
     setMounted(true);
   }, []);
@@ -91,6 +105,11 @@ export function Sidebar({
     if (normalized === "direct") return "Direct";
     return String(type);
   };
+
+  const isWsConnected =
+    ws.status === "connected" ||
+    ws.status === "connecting" ||
+    ws.status === "reconnecting";
 
   return (
     <div className="relative group flex flex-col h-full bg-background">
@@ -170,18 +189,11 @@ export function Sidebar({
               Search Results
             </p>
             {searchResults && searchResults.length > 0
-              ? searchResults.map((user, index) => (
+              ? searchResults.map((user) => (
                   <div
                     key={`search-${user.id}`}
                     onClick={() => {
-                      onSelectUser({
-                        id: user.id,
-                        name: user.displayName || user.username,
-                        avatar:
-                          user.avatarUrl ||
-                          "https://avatars.githubusercontent.com/u/79553845",
-                        messages: [],
-                      } as any);
+                      onSelectUser(mapUserToSidebarUser(user));
                     }}
                     className={cn(
                       "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors mx-2 rounded-lg mb-1",
@@ -190,19 +202,24 @@ export function Sidebar({
                         : "hover:bg-zinc-100 dark:hover:bg-zinc-800/50",
                     )}
                   >
-                    <Avatar className="h-12 w-12 shrink-0">
-                      <AvatarImage
-                        src={
-                          user.avatarUrl ||
-                          "https://avatars.githubusercontent.com/u/79553845"
-                        }
-                        alt={user.username}
-                        className="object-cover"
-                      />
-                      <AvatarFallback>
-                        {(user.displayName || user.username)[0]}
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className="relative shrink-0">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage
+                          src={
+                            user.avatarUrl ||
+                            "https://avatars.githubusercontent.com/u/79553845"
+                          }
+                          alt={user.username}
+                          className="object-cover"
+                        />
+                        <AvatarFallback>
+                          {(user.displayName || user.username)[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      {user.status === "online" && (
+                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
+                      )}
+                    </div>
                     <div
                       className={cn(
                         "flex flex-col flex-1 min-w-0 pb-3 h-full justify-center",
@@ -248,9 +265,9 @@ export function Sidebar({
           </div>
         ) : (
           <div className="flex flex-col">
-            {links.map((link, index) => (
+            {links.map((link) => (
               <div
-                key={index}
+                key={link.id}
                 onClick={() => {
                   onSelectChat(link.id);
                 }}
@@ -261,14 +278,19 @@ export function Sidebar({
                     : "hover:bg-zinc-100 dark:hover:bg-zinc-800/50",
                 )}
               >
-                <Avatar className="h-12 w-12 shrink-0">
-                  <AvatarImage
-                    src={link.avatar}
-                    alt={link.name}
-                    className="object-cover"
-                  />
-                  <AvatarFallback>{link?.name?.[0] || "U"}</AvatarFallback>
-                </Avatar>
+                <div className="relative shrink-0">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage
+                      src={link.avatar}
+                      alt={link.name}
+                      className="object-cover"
+                    />
+                    <AvatarFallback>{link?.name?.[0] || "U"}</AvatarFallback>
+                  </Avatar>
+                  {link.type === "direct" && link.status === "online" && (
+                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
+                  )}
+                </div>
                 <div
                   className={cn(
                     "flex flex-col flex-1 min-w-0 pb-3 h-full justify-center",
@@ -306,7 +328,7 @@ export function Sidebar({
                               hour: "2-digit",
                               minute: "2-digit",
                             })
-                          : "12:45"}
+                          : ""}
                       </span>
                     </div>
                   </div>
@@ -430,19 +452,15 @@ export function Sidebar({
               size="icon"
               className="h-9 w-9"
               onClick={() => {
-                if (
-                  ws.status === "connected" ||
-                  ws.status === "connecting" ||
-                  ws.status === "reconnecting"
-                ) {
+                if (isWsConnected) {
                   ws.disconnect();
                 } else {
                   ws.connect();
                 }
               }}
-              title={ws.status === "connected" ? "Go offline" : "Go online"}
+              title={isWsConnected ? "Go offline" : "Go online"}
             >
-              {ws.status === "connected" ? (
+              {isWsConnected ? (
                 <WifiOff className="h-4 w-4" />
               ) : (
                 <Wifi className="h-4 w-4" />

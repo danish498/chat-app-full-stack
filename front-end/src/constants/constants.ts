@@ -13,6 +13,8 @@ export const WS_EVENTS = {
   MESSAGE_RECEIVE: "message:receive",
   USER_ONLINE: "user:online",
   USER_OFFLINE: "user:offline",
+  PRESENCE_SYNC: "presence:sync",
+  PRESENCE_SNAPSHOT: "presence:snapshot",
 } as const;
 
 export type WSEventType = typeof WS_EVENTS[keyof typeof WS_EVENTS];

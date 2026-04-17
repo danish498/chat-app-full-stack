@@ -3,7 +3,7 @@ import { Avatar, AvatarImage } from './ui/avatar'
 import { UserData } from '@/app/data';
 import { Info, Phone, Video, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
+import { cn, formatLastSeen } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 
 interface MessageTopbarProps {
@@ -60,7 +60,13 @@ export default function MessageTopbar({
           <div className="flex flex-col">
             <span className="font-medium">{selectedUser.name}</span>
             <span className="text-xs">
-              {isTyping ? "Typing..." : isOnline ? "Online" : "Active 2 mins ago"}
+              {isTyping
+                ? "Typing..."
+                : isOnline
+                  ? "Online"
+                  : selectedUser.lastSeen
+                    ? `Active ${formatLastSeen(selectedUser.lastSeen)}`
+                    : "Offline"}
             </span>
           </div>
         </button>

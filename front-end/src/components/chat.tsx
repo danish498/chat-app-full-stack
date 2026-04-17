@@ -1,15 +1,15 @@
 "use client";
 
-import { userData, UserData, Message } from "@/app/data";
-import React, { useCallback, useEffect, useState } from "react";
+import { UserData, Message } from "@/app/data";
+import React, { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Sidebar } from "./sidebar";
 import { Conversation } from "./conversation";
 import useSWR, { mutate } from "swr";
-import chatService, { Chat as ChatData } from "@/services/chat.service";
-import authService, { User } from "@/services/auth.service";
+import chatService from "@/services/chat.service";
+import authService from "@/services/auth.service";
 import userService from "@/services/user.service";
-import { Loader2, MessageSquare } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
 import useSWRMutation from "swr/mutation";
 import messageService from "@/services/message.service";
@@ -25,14 +25,30 @@ interface ChatProps {
   navCollapsedSize: number;
 }
 
+const FALLBACK_AVATAR = "https://avatars.githubusercontent.com/u/79553845";
+
+const toSidebarUser = (chat: any): UserData =>
+  ({
+    id: chat.type === "direct" ? chat.otherUser.id : chat.id,
+    name:
+      chat.type === "direct"
+        ? chat.otherUser.username
+        : (chat.name ?? "Group"),
+    avatar:
+      chat.type === "direct"
+        ? (chat.otherUser.avatarUrl ?? FALLBACK_AVATAR)
+        : (chat.avatarUrl ?? FALLBACK_AVATAR),
+    messages: [],
+    lastSeen: chat.type === "direct" ? chat.otherUser.lastSeen : null,
+  }) as UserData;
+
 export function Chat({
-  defaultLayout = [320, 480],
-  defaultCollapsed = false,
-  navCollapsedSize,
+  defaultLayout: _defaultLayout = [320, 480],
+  defaultCollapsed: _defaultCollapsed = false,
+  navCollapsedSize: _navCollapsedSize,
 }: ChatProps) {
   const {
     data: chats,
-    error,
     isLoading: chatLoading,
   } = useSWR("user-chats", chatService.getChats);
 
@@ -48,8 +64,6 @@ export function Chat({
 
   const {
     data: selectedChat,
-    error: selectedChatError,
-    isLoading: selectedChatLoading,
   } = useSWR(
     selectedChatIdForDetails
       ? ["get-chat-by-id", selectedChatIdForDetails]
@@ -60,7 +74,6 @@ export function Chat({
   const {
     data: searchResults,
     isLoading: searchLoading,
-    error: searchError,
   } = useSWR(
     debouncedSearchQuery ? ["search-users", debouncedSearchQuery] : null,
     () => userService.searchUsers(debouncedSearchQuery),
@@ -69,15 +82,12 @@ export function Chat({
   const {
     data: messagesData,
     isLoading: messageLoading,
-    error: messageError,
   } = useSWR(selectedChatId ? ["messages", selectedChatId] : null, () =>
     messageService.getMessagesByChatId(selectedChatId!),
   );
 
   const {
     trigger,
-    data: chatCreateData,
-    error: createChatError,
     isMutating,
   } = useSWRMutation(
     "chat-create",
@@ -118,46 +128,54 @@ export function Chat({
     setSelectedChatIdForDetails(null);
     const chat = chats?.data?.find((c) => c.id === chatId);
     if (chat) {
-      setSelectedUser({
-        id: chat.type === "direct" ? chat.otherUser.id : chat.id,
-        name:
-          chat.type === "direct"
-            ? chat.otherUser.username
-            : (chat.name ?? "Group"),
-        avatar:
-          chat.type === "direct"
-            ? chat.otherUser.avatarUrl ||
-              "https://avatars.githubusercontent.com/u/79553845"
-            : (chat.avatarUrl ??
-              "https://avatars.githubusercontent.com/u/79553845"),
-        messages: [],
-      } as any);
+      setSelectedUser(toSidebarUser(chat));
     }
   };
 
-  const links =
-    chats?.data?.map((chat) => {
-      const name =
-        chat.type === "direct"
-          ? chat.otherUser?.displayName || chat.otherUser?.username
-          : (chat.name ?? "Group");
-      return {
-        id: chat.id,
-        name: name,
-        messages: chat.lastMessage ? [chat.lastMessage] : ([] as Message[]),
-        avatar:
+  const selectedChatType = useMemo(
+    () => chats?.data?.find((c) => c.id === selectedChatId)?.type,
+    [chats?.data, selectedChatId],
+  );
+
+  const links = useMemo(
+    () =>
+      chats?.data?.map((chat) => {
+        const targetId = chat.type === "direct" ? chat.otherUser?.id : chat.id;
+        const name =
           chat.type === "direct"
-            ? chat.otherUser?.avatarUrl ||
-              "https://avatars.githubusercontent.com/u/79553845"
-            : (chat.avatarUrl ??
-              "https://avatars.githubusercontent.com/u/79553845"),
-        variant: (selectedUser?.id ===
-        (chat.type === "direct" ? chat.otherUser?.id : chat.id)
-          ? "grey"
-          : "ghost") as "grey" | "ghost",
-        type: chat.type,
-      };
-    }) || [];
+            ? chat.otherUser?.displayName || chat.otherUser?.username
+            : (chat.name ?? "Group");
+        return {
+          id: chat.id,
+          name,
+          messages: chat.lastMessage ? [chat.lastMessage] : ([] as Message[]),
+          avatar:
+            chat.type === "direct"
+              ? (chat.otherUser?.avatarUrl ?? FALLBACK_AVATAR)
+              : (chat.avatarUrl ?? FALLBACK_AVATAR),
+          variant: (selectedUser?.id === targetId ? "grey" : "ghost") as
+            | "grey"
+            | "ghost",
+          type: chat.type,
+          status: chat.type === "direct" ? chat.otherUser?.status : null,
+          lastSeen: chat.type === "direct" ? chat.otherUser?.lastSeen : null,
+        };
+      }) || [],
+    [chats?.data, selectedUser?.id],
+  );
+
+  const showSidebar = !isMobile || !selectedUser;
+  const showConversation = !isMobile || !!selectedUser;
+
+  const sidebarClassName = cn(
+    "h-full border-r transition-all duration-300 ease-in-out",
+    showSidebar ? (isMobile ? "w-full" : "w-[480px] max-w-[520px]") : "hidden",
+  );
+
+  const conversationClassName = cn(
+    "flex-1 h-full",
+    showConversation ? (isMobile ? "w-full" : "block") : "hidden",
+  );
 
   const handleChatSearch = (value: string) => {
     setSearchQuery(value);
@@ -215,14 +233,7 @@ export function Chat({
     >
       {/* Sidebar - Hidden on mobile if a user is selected */}
       <div
-        className={cn(
-          "h-full border-r transition-all duration-300 ease-in-out",
-          isMobile
-            ? selectedUser
-              ? "hidden"
-              : "w-full"
-            : "w-[480px]  max-w-[520px]",
-        )}
+        className={sidebarClassName}
       >
         {chatLoading ? (
           <div className="flex items-center justify-center h-full">
@@ -246,10 +257,7 @@ export function Chat({
 
       {/* Main Chat Area - Hidden on mobile if no user is selected */}
       <div
-        className={cn(
-          "flex-1 h-full",
-          isMobile ? (!selectedUser ? "hidden" : "w-full") : "block",
-        )}
+        className={conversationClassName}
       >
         {selectedUser ? (
           messageLoading ? (
@@ -262,7 +270,7 @@ export function Chat({
               messages={messagesData?.data}
               initialNextCursor={messagesData?.nextCursor ?? null}
               selectedUser={selectedUser}
-              chatType={chats?.data?.find((c) => c.id === selectedChatId)?.type}
+              chatType={selectedChatType}
               isLoading={messageLoading}
               onBack={isMobile ? () => setSelectedUser(null) : undefined}
               onUserClick={

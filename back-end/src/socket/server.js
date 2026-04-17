@@ -3,6 +3,9 @@ import { randomUUID } from "crypto";
 import jwt from "jsonwebtoken";
 import { config } from "../config/index.js";
 import logger from "../utils/logger.js";
+import { db } from "../db/db.js";
+import { users } from "../db/schema.js";
+import { eq } from "drizzle-orm";
 
 // ─── Events Constants ────────────────────────────────────────────────────────
 
@@ -23,6 +26,8 @@ const EVENTS = {
   PRESENCE: {
     ONLINE: "user:online",
     OFFLINE: "user:offline",
+    SYNC: "presence:sync",
+    SNAPSHOT: "presence:snapshot",
     TYPING_START: "typing:start",
     TYPING_STOP: "typing:stop",
   },
@@ -178,6 +183,12 @@ const onConnect = (socket, userId) => {
 
   // Broadcast presence if this is the first connection for the user
   if (isFirstSocket) {
+    // Update DB status to online
+    db.update(users)
+      .set({ status: 'online', lastSeen: new Date() })
+      .where(eq(users.id, userId))
+      .catch(err => logger.error("[ws] failed to update user online status:", err.message));
+
     broadcastToAll(
       {
         type: EVENTS.PRESENCE.ONLINE,
@@ -211,6 +222,12 @@ const onDisconnect = (socket) => {
     sockets.delete(socketId);
     if (sockets.size === 0) {
       userSockets.delete(userId);
+      // Update DB status to offline and set lastSeen
+      db.update(users)
+        .set({ status: 'offline', lastSeen: new Date() })
+        .where(eq(users.id, userId))
+        .catch(err => logger.error("[ws] failed to update user offline status:", err.message));
+
       // Last socket closed, broadcast offline status
       broadcastToAll({
         type: EVENTS.PRESENCE.OFFLINE,
@@ -272,6 +289,25 @@ const onMessage = (socket, raw) => {
         socket.socketId,
       );
       break;
+
+    case EVENTS.PRESENCE.SYNC: {
+      // Return a snapshot of current presence so remounted clients
+      // do not rely only on live online/offline push events.
+      const requestedUserId = data.userId;
+      const onlineUserIds = Array.from(userSockets.keys());
+      const isOnline = requestedUserId
+        ? onlineUserIds.includes(String(requestedUserId))
+        : null;
+
+      sendJsonMessage(socket, {
+        type: EVENTS.PRESENCE.SNAPSHOT,
+        userId: requestedUserId ?? null,
+        isOnline,
+        onlineUserIds,
+        timestamp: new Date().toISOString(),
+      });
+      break;
+    }
 
     case EVENTS.MESSAGING.SEND:
       // Typically handled via REST API, but provided here for direct WS messaging
