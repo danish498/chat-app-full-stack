@@ -58,13 +58,25 @@ const authService = {
   },
 
   logout: async () => {
+    try {
+      const { clearAllKeys } = await import('@/lib/e2ee');
+      await clearAllKeys();
+    } catch (err) {
+      console.error('Failed to clear E2EE keys:', err);
+    }
+
     const refreshToken = localStorage.getItem('refreshToken');
     if (refreshToken) {
-      await api.post('/auth/logout', { refreshToken });
+      try {
+        await api.post('/auth/logout', { refreshToken });
+      } catch (err) {
+        console.error('Logout API call failed:', err);
+      }
     }
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('deviceId');
     window.location.href = '/login';
   },
   getProfile: async (): Promise<User> => {

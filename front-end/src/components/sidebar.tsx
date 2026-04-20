@@ -469,12 +469,12 @@ export function Sidebar({
 
             <Button
               variant="ghost"
-              size="icon"
-              className="h-9 w-9"
+              size="sm"
+              className="h-9 gap-2 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
               onClick={() => authService.logout()}
-              title="Logout"
             >
               <LogOut className="h-4 w-4" />
+              <span className="text-sm font-medium">Logout</span>
             </Button>
           </div>
         </div>

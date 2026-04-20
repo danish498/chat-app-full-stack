@@ -3,7 +3,7 @@ import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Shadcn Chat",
+  title: "Chat Hive",
   description: "Chat/message components for Shadcn",
 };
 
