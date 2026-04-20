@@ -1,28 +1,32 @@
 import nacl from "tweetnacl";
 import { encodeBase64, decodeBase64 } from "tweetnacl-util";
 
-export const encodeHex = (bytes) =>
-  Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+/* ================= DEVICE ID ================= */
 
-export const decodeHex = (hex) => {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+export const getOrCreateDeviceId = () => {
+  if (typeof window === "undefined") return null;
+
+  let deviceId = localStorage.getItem("deviceId");
+
+  if (!deviceId) {
+    deviceId = crypto.randomUUID();
+    localStorage.setItem("deviceId", deviceId);
   }
-  return bytes;
+
+  return deviceId;
 };
+
+/* ================= IndexedDB ================= */
 
 const DB_NAME = "e2ee_keys";
 const STORE_NAME = "keypairs";
 
-// ─── IndexedDB helpers ────────────────────────────────────────────────────────
-
 const openDB = () =>
   new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = (e) => e.target.result.createObjectStore(STORE_NAME);
+    req.onupgradeneeded = (e) => {
+      e.target.result.createObjectStore(STORE_NAME);
+    };
     req.onsuccess = (e) => resolve(e.target.result);
     req.onerror = () => reject(req.error);
   });
@@ -37,7 +41,7 @@ export const idbGet = async (key) => {
   });
 };
 
-const idbSet = async (key, value) => {
+export const idbSet = async (key, value) => {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readwrite");
@@ -47,111 +51,211 @@ const idbSet = async (key, value) => {
   });
 };
 
-// ─── Key management ───────────────────────────────────────────────────────────
+/* ================= KEY MANAGEMENT ================= */
 
-// Call once on registration — generates keypair, stores private key locally,
-// uploads public key to server
 export const generateAndStoreKeyPair = async (userId, apiFetch) => {
-  const keyPair = nacl.box.keyPair();
+  const deviceId = getOrCreateDeviceId();
 
-  // Store private key in IndexedDB — never sent to server
-  await idbSet(`privateKey:${userId}`, keyPair.secretKey);
+  // Check if we already have a private key for this user on this device
+  let privateKey = await idbGet(`privateKey:${userId}`);
+  let publicKey;
 
-  // Upload public key to server
-  await apiFetch("/keys", {
+  if (privateKey) {
+    // Derive public key from existing private key
+    const keyPair = nacl.box.keyPair.fromSecretKey(privateKey);
+    publicKey = keyPair.publicKey;
+  } else {
+    // Generate new key pair and store private key locally
+    const keyPair = nacl.box.keyPair();
+    privateKey = keyPair.secretKey;
+    publicKey = keyPair.publicKey;
+    await idbSet(`privateKey:${userId}`, privateKey);
+  }
+
+  // send public key to server
+  await apiFetch("/keys/devices", {
     method: "POST",
     body: JSON.stringify({
-      publicKey: encodeHex(keyPair.publicKey),
+      deviceId,
+      publicKey: encodeBase64(publicKey),
     }),
   });
 
-  return encodeHex(keyPair.publicKey);
-};
-
-// Load private key from IndexedDB
-const getPrivateKey = async (userId) => {
-  const key = await idbGet(`privateKey:${userId}`);
-  if (!key)
-    throw new Error("Private key not found. Has this device been set up?");
-  return key;
-};
-
-// Cache public keys in memory to avoid repeated API calls
-const pubKeyCache = new Map();
-
-// const fetchPublicKey = async (userId, apiFetch) => {
-//   if (pubKeyCache.has(userId)) return pubKeyCache.get(userId);
-
-//   const res = await apiFetch(`/keys/${userId}`);
-//   const data = await res.json();
-
-//   const key = decodeHex(data.publicKey);
-//   pubKeyCache.set(userId, key);
-//   return key;
-// };
-
-const fetchPublicKey = async (userId, apiFetch) => {
-  if (pubKeyCache.has(userId)) return pubKeyCache.get(userId);
-  const promise = (async () => {
-    try {
-      const res = await apiFetch(`/keys/${userId}`);
-      if (!res.ok) throw new Error(`Failed to fetch key for ${userId}`);
-      const data = await res.json();
-      return decodeHex(data.publicKey);
-    } catch (err) {
-      // If it fails, remove from cache so it can be retried later
-      pubKeyCache.delete(userId);
-      throw err;
-    }
-  })();
-
-  pubKeyCache.set(userId, promise);
-  return promise;
-};
-
-// ─── Encrypt (Alice sending to Bob) ──────────────────────────────────────────
-
-export const encryptMessage = async (
-  plaintext,
-  senderUserId,
-  recipientUserId,
-  apiFetch,
-) => {
-  const senderPrivKey = await getPrivateKey(senderUserId);
-  const recipientPubKey = await fetchPublicKey(recipientUserId, apiFetch);
-
-  // Fresh random nonce for every single message — critical
-  const nonce = nacl.randomBytes(nacl.box.nonceLength);
-
-  const messageBytes = new TextEncoder().encode(plaintext);
-  const ciphertext = nacl.box(
-    messageBytes,
-    nonce,
-    recipientPubKey,
-    senderPrivKey,
-  );
-
   return {
-    content: encodeBase64(ciphertext),
-    nonce: encodeBase64(nonce),
-    isEncrypted: true,
+    deviceId,
+    publicKey: encodeBase64(publicKey),
   };
 };
 
-// ─── Decrypt (Bob receiving from Alice) ──────────────────────────────────────
+export const getPrivateKey = async (userId) => {
+  const key = await idbGet(`privateKey:${userId}`);
+  if (!key) throw new Error("Private key not found on this device");
+  return key;
+};
 
-export const decryptMessage = async (
-  message,
+
+/* ================= KEY BACKUP ================= */
+
+export const deriveKeyFromPassword = async (password, salt) => {
+  const enc = new TextEncoder();
+
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(password),
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+
+  return crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: decodeBase64(salt),
+      iterations: 100000,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+};
+
+export const backupPrivateKey = async (userId, password, apiFetch) => {
+  const privateKey = await getPrivateKey(userId);
+
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await deriveKeyFromPassword(password, encodeBase64(salt));
+
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+
+  const encrypted = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    privateKey
+  );
+
+  const payload = {
+    encryptedPrivateKey: encodeBase64(
+      new Uint8Array([...iv, ...new Uint8Array(encrypted)])
+    ),
+    keySalt: encodeBase64(salt),
+  };
+
+  await apiFetch("/keys/backup", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+};
+
+export const restorePrivateKey = async (userId, password, apiFetch) => {
+  const res = await apiFetch("/keys/backup");
+  if (!res.ok) throw new Error("No backup found");
+
+  const { encryptedPrivateKey, keySalt } = await res.json();
+
+  const key = await deriveKeyFromPassword(password, keySalt);
+
+  const data = decodeBase64(encryptedPrivateKey);
+
+  const iv = data.slice(0, 12);
+  const ciphertext = data.slice(12);
+
+  const decrypted = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    key,
+    ciphertext
+  );
+
+  const privateKey = new Uint8Array(decrypted);
+
+  await idbSet(`privateKey:${userId}`, privateKey);
+
+  return privateKey;
+};
+
+/* ================= DEVICE FETCH ================= */
+
+
+const deviceCache = new Map();
+
+export const fetchUserDevices = async (userId, apiFetch) => {
+  if (deviceCache.has(userId)) return deviceCache.get(userId);
+
+  const promise = (async () => {
+    const res = await apiFetch(`/keys/${userId}/devices`);
+    if (!res.ok) throw new Error("Failed to fetch devices");
+
+    const data = await res.json();
+
+    return data.devices.map((d) => ({
+      deviceId: d.deviceId,
+      publicKey: decodeBase64(d.publicKey),
+    }));
+  })();
+
+  deviceCache.set(userId, promise);
+  return promise;
+};
+
+/* ================= ENCRYPTION ================= */
+
+export const encryptMessage = async ({
+  plaintext,
+  senderUserId,
+  participantUserIds, // 🔥 all users in chat
+  apiFetch,
+}) => {
+  const senderPrivKey = await getPrivateKey(senderUserId);
+
+  const messageBytes = new TextEncoder().encode(plaintext);
+
+  let encryptedPayloads = [];
+
+  for (const userId of participantUserIds) {
+    const devices = await fetchUserDevices(userId, apiFetch);
+
+    for (const device of devices) {
+      const nonce = nacl.randomBytes(nacl.box.nonceLength);
+
+      const ciphertext = nacl.box(
+        messageBytes,
+        nonce,
+        device.publicKey,
+        senderPrivKey,
+      );
+
+      encryptedPayloads.push({
+        deviceId: device.deviceId,
+        ciphertext: encodeBase64(ciphertext),
+        nonce: encodeBase64(nonce),
+      });
+    }
+  }
+
+  return {
+    encryptedPayloads,
+    messageType: "text",
+  };
+};
+
+/* ================= DECRYPTION ================= */
+
+export const decryptMessage = async ({
+  message, // contains ciphertext + nonce
   recipientUserId,
   senderUserId,
   apiFetch,
-) => {
-  // if (!message.isEncrypted) return message.content; // fallback for unencrypted msgs
-
+}) => {
   const recipientPrivKey = await getPrivateKey(recipientUserId);
-  const senderPubKey = await fetchPublicKey(senderUserId, apiFetch);
 
-  const ciphertext = decodeBase64(message.content);
+  // fetch sender devices (we need public key)
+  const senderDevices = await fetchUserDevices(senderUserId, apiFetch);
+
+  // ⚠️ for now pick first device (later improve)
+  const senderPubKey = senderDevices[0].publicKey;
+
+  const ciphertext = decodeBase64(message.ciphertext);
   const nonce = decodeBase64(message.nonce);
 
   const decrypted = nacl.box.open(
@@ -161,8 +265,9 @@ export const decryptMessage = async (
     recipientPrivKey,
   );
 
-  if (!decrypted)
-    throw new Error("Decryption failed — message may be tampered");
+  if (!decrypted) {
+    throw new Error("Decryption failed — possibly wrong key");
+  }
 
   return new TextDecoder().decode(decrypted);
 };

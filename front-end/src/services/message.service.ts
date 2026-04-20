@@ -18,11 +18,11 @@ export interface Message {
 
 export interface MessagePayload {
   chatId: string;
-  content: string;
-  nonce?: string;
-  isEncrypted?: boolean;
+  content?: string;
   messageType: 'text' | 'image' | 'file' | 'video';
   fileUrl?: string | null;
+  replyToId?: string | null;
+  encryptedPayloads?: { deviceId: string; ciphertext: string; nonce: string }[];
   createdAt?: string;
 }
 

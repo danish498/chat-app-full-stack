@@ -64,14 +64,15 @@ export function Conversation({
 
       const decrypted = await Promise.all(
         batch.map(async (msg) => {
-          if (msg.isEncrypted && msg.content) {
+          if (!msg.isEncrypted) {
+            //need to check after word reverse condtion applied right now
             try {
-              const plaintext = await decryptMessage(
-                msg as any,
-                currentUser.id,
-                selectedUser.id,
+              const plaintext = await decryptMessage({
+                message: msg as any,
+                recipientUserId: String(currentUser.id),
+                senderUserId: String(msg.senderId),
                 apiFetch,
-              );
+              });
               return { ...msg, content: plaintext };
             } catch (err) {
               console.error("Failed to decrypt message:", msg.id, err);
@@ -83,7 +84,7 @@ export function Conversation({
       );
       return decrypted;
     },
-    [chatType, selectedUser.id],
+    [chatType],
   );
 
   const handleWsMessage = React.useCallback(
@@ -165,9 +166,7 @@ export function Conversation({
           typeof msg.isOnline === "boolean"
             ? msg.isOnline
             : Array.isArray(msg.onlineUserIds) &&
-              msg.onlineUserIds.some(
-                (id: string) => isSelectedUser(id),
-              );
+              msg.onlineUserIds.some((id: string) => isSelectedUser(id));
 
         setIsOnline(Boolean(onlineFromSnapshot));
         if (!onlineFromSnapshot) {
@@ -183,8 +182,7 @@ export function Conversation({
         const otherChatId = msg.chatId;
         if (!chatId) return;
         if (otherChatId !== chatId) return;
-        if (isSelectedUser(otherTypingUserId))
-          setIsOtherTyping(true);
+        if (isSelectedUser(otherTypingUserId)) setIsOtherTyping(true);
       }
 
       if (msg.type === "typing:stop") {
@@ -192,8 +190,7 @@ export function Conversation({
         const otherChatId = msg.chatId;
         if (!chatId) return;
         if (otherChatId !== chatId) return;
-        if (isSelectedUser(otherTypingUserId))
-          setIsOtherTyping(false);
+        if (isSelectedUser(otherTypingUserId)) setIsOtherTyping(false);
       }
     },
     [chatId, chatType, isSelectedUser, decryptBatch, mutate],
@@ -240,7 +237,9 @@ export function Conversation({
     if (!selectedUser?.id) return;
 
     const requestPresenceSnapshot = () => {
-      wsSendMessage(WS_EVENTS.PRESENCE_SYNC, { userId: String(selectedUser.id) });
+      wsSendMessage(WS_EVENTS.PRESENCE_SYNC, {
+        userId: String(selectedUser.id),
+      });
     };
 
     requestPresenceSnapshot();
@@ -274,6 +273,9 @@ export function Conversation({
       setIsDecrypting(true);
       try {
         const decrypted = await decryptBatch(messages);
+
+        console.log("decrypted", decrypted);
+
         if (isCancelled) return;
         setMessages(decrypted);
         setNextCursor(initialNextCursor ?? null);
@@ -290,7 +292,7 @@ export function Conversation({
     return () => {
       isCancelled = true;
     };
-  }, [chatId, messages, initialNextCursor, decryptBatch]);
+  }, [chatId, decryptBatch]);
 
   const loadOlder = React.useCallback(async () => {
     if (!chatId) return;
@@ -346,6 +348,7 @@ export function Conversation({
     options?: {
       fileUrl?: string;
       messageType?: "text" | "image" | "file" | "video";
+      replyToId?: string | null;
     },
   ) => {
     if (!chatId) return;
@@ -361,7 +364,10 @@ export function Conversation({
       createdAt: new Date().toISOString(),
       messageType: resolvedType,
       fileUrl: options?.fileUrl ?? null,
+      replyToId: options?.replyToId ?? null,
     } as Message;
+
+    console.log("chatType", chatType);
 
     setMessages((prev) => [...prev, optimisticMessage]);
 
@@ -372,28 +378,26 @@ export function Conversation({
 
       let messageToSend: any = {
         chatId,
-        content,
         messageType: resolvedType,
         fileUrl: options?.fileUrl ?? null,
+        replyToId: options?.replyToId ?? null,
         createdAt: optimisticMessage.createdAt,
       };
 
       // Only encrypt text messages in direct chats (media URLs are public CDN links)
       if (chatType === "direct" && resolvedType === "text") {
-        const {
-          content: encryptedContent,
-          nonce,
-          isEncrypted,
-        } = await encryptMessage(
-          content,
-          currentUser.id,
-          selectedUser.id,
+        const { encryptedPayloads } = await encryptMessage({
+          plaintext: content,
+          senderUserId: String(currentUser.id),
+          participantUserIds: [String(currentUser.id), String(selectedUser.id)],
           apiFetch,
-        );
+        });
 
-        messageToSend.content = encryptedContent;
-        messageToSend.nonce = nonce;
-        messageToSend.isEncrypted = isEncrypted;
+        console.log("asdfasdfsafsadasfasdfsad", encryptedPayloads);
+
+        messageToSend.encryptedPayloads = encryptedPayloads;
+      } else {
+        messageToSend.content = content;
       }
 
       const response = await messageService.sendMessage(messageToSend);

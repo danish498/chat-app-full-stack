@@ -1,5 +1,5 @@
 import { db } from "../db/db.js";
-import { chatParticipants, messages, chats } from "../db/schema.js";
+import { chatParticipants, messages, chats, messageRecipients } from "../db/schema.js";
 import { eq, desc, isNull, and, or, lt } from "drizzle-orm";
 import logger from "../utils/logger.js";
 
@@ -116,13 +116,24 @@ import logger from "../utils/logger.js";
 
 
 
+
+
+
 export const getMessagesByChatId = async (req, res, next) => {
   try {
     const { chatId } = req.params;
     const userId = req.user.id;
+    const deviceId = req.headers["x-device-id"]; // 🔥 REQUIRED
     const { cursor, limit = 10 } = req.query;
 
-    // ✅ Check access
+    if (!deviceId) {
+      return res.status(400).json({
+        success: false,
+        message: "Device ID required",
+      });
+    }
+
+    // ✅ Access check
     const isParticipant = await db
       .select({ id: chatParticipants.id })
       .from(chatParticipants)
@@ -137,11 +148,10 @@ export const getMessagesByChatId = async (req, res, next) => {
     if (!isParticipant.length) {
       return res.status(403).json({
         success: false,
-        message: "Not allowed to access this chat",
+        message: "Not allowed",
       });
     }
 
-    // ✅ Decode cursor (same as getChats)
     let decodedCursor = null;
     if (cursor) {
       decodedCursor = JSON.parse(
@@ -149,44 +159,49 @@ export const getMessagesByChatId = async (req, res, next) => {
       );
     }
 
-    // ✅ Build query
     const rows = await db
       .select({
         id: messages.id,
         chatId: messages.chatId,
         senderId: messages.senderId,
-        content: messages.content,
         messageType: messages.messageType,
-        fileUrl: messages.fileUrl,
         createdAt: messages.createdAt,
         isEdited: messages.isEdited,
         replyToId: messages.replyToId,
-        isEncrypted: messages.isEncrypted,
-        nonce: messages.nonce,
+
+        // 🔐 encrypted payload
+        ciphertext: messageRecipients.ciphertext,
+        nonce: messageRecipients.nonce,
+
         isMe: eq(messages.senderId, userId),
       })
       .from(messages)
+      .innerJoin(
+        messageRecipients,
+        and(
+          eq(messageRecipients.messageId, messages.id),
+          eq(messageRecipients.deviceId, deviceId),
+        ),
+      )
       .where(
         and(
           eq(messages.chatId, chatId),
           or(eq(messages.isDeleted, false), isNull(messages.isDeleted)),
 
-          // ✅ Cursor condition
           decodedCursor
             ? or(
                 lt(messages.createdAt, new Date(decodedCursor.createdAt)),
                 and(
                   eq(messages.createdAt, new Date(decodedCursor.createdAt)),
-                  lt(messages.id, decodedCursor.id), // tie-breaker 🔥
+                  lt(messages.id, decodedCursor.id),
                 ),
               )
             : undefined,
         ),
       )
-      .orderBy(desc(messages.createdAt), desc(messages.id)) // ✅ stable sorting
-      .limit(Number(limit) + 1); // ✅ +1 trick
+      .orderBy(desc(messages.createdAt), desc(messages.id))
+      .limit(Number(limit) + 1);
 
-    // ✅ Pagination handling
     let nextCursor = null;
 
     if (rows.length > Number(limit)) {
@@ -200,12 +215,9 @@ export const getMessagesByChatId = async (req, res, next) => {
       ).toString("base64");
     }
 
-    // ✅ Reverse for chat UI (oldest → newest)
-    const messagesOrdered = rows.reverse();
-
     return res.json({
       success: true,
-      data: messagesOrdered,
+      data: rows.reverse(),
       nextCursor,
     });
   } catch (error) {
@@ -213,64 +225,61 @@ export const getMessagesByChatId = async (req, res, next) => {
   }
 };
 
+
+
 export const sendMessage = async (req, res, next) => {
   try {
     const {
       chatId,
-      content,
       messageType,
-      fileUrl,
-      fileName,
       replyToId,
+      encryptedPayloads, // 🔥 [{ deviceId, ciphertext, nonce }]
       createdAt,
-      nonce,
-      isEncrypted,
     } = req.body;
 
     const senderId = req.user.id;
 
-    const [newMessage] = await db
+    if (!encryptedPayloads || !encryptedPayloads.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Encrypted payloads required",
+      });
+    }
+
+    // ✅ Step 1: insert message metadata
+    const [msg] = await db
       .insert(messages)
       .values({
         chatId,
         senderId,
-        content,
         messageType,
-        fileUrl,
-        fileName,
         replyToId,
-        nonce,
-        isEncrypted,
         createdAt: createdAt ? new Date(createdAt) : undefined,
       })
       .returning();
 
-    // Fetch chat type to determine how to broadcast
-    const [chatInfo] = await db
-      .select({ type: chats.type })
-      .from(chats)
-      .where(eq(chats.id, chatId));
+    // ✅ Step 2: store encrypted copies
+    await db.insert(messageRecipients).values(
+      encryptedPayloads.map((p) => ({
+        messageId: msg.id,
+        deviceId: p.deviceId,
+        ciphertext: p.ciphertext,
+        nonce: p.nonce,
+      })),
+    );
 
-    if (chatInfo?.type === "direct") {
-      // Find the other participant in this 1-on-1 chat
-      const participants = await db
-        .select({ userId: chatParticipants.userId })
-        .from(chatParticipants)
-        .where(eq(chatParticipants.chatId, chatId));
-
-      const otherUser = participants.find((p) => p.userId !== senderId);
-
-      if (otherUser) {
-        req.app.locals.broadcastNewMessage(otherUser.userId, newMessage);
-      }
-    } else {
-      // Broadcast to the whole group room (chatInfo?.type === "group")
-      req.app.locals.broadcastNewGroupMessage(chatId, newMessage);
-    }
+    // 🚀 Broadcast (no plaintext anymore)
+    req.app.locals.broadcastNewMessage(chatId, {
+      id: msg.id,
+      chatId,
+      senderId,
+      messageType,
+      createdAt: msg.createdAt,
+    });
 
     res.status(201).json({
       success: true,
-      data: newMessage,
+      data: msg,
     });
   } catch (error) {
     next(error);

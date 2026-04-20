@@ -16,7 +16,7 @@ import {
 import AuthLayout from "@/components/AuthLayout";
 import authService from "@/services/auth.service";
 import { apiFetch, setAccessToken } from "@/lib/apiClient";
-import { generateAndStoreKeyPair } from "@/lib/e2ee";
+import { generateAndStoreKeyPair, backupPrivateKey } from "@/lib/e2ee";
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -45,6 +45,7 @@ export default function SignupPage() {
       setAccessToken(accessToken);
 
       await generateAndStoreKeyPair(user.id, apiFetch);
+      await backupPrivateKey(user.id, formData.password, apiFetch);
       //    ↑ THIS is where IndexedDB gets created for the first time
       //      and the private key is stored + public key uploaded to server
 

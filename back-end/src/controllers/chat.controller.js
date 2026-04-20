@@ -116,12 +116,12 @@ export const getChats = async (req, res, next) => {
     if (chatIdsForLastMessage.length > 0) {
       const lastMessages = await db
         .select({
-          chatId: messages.chatId,
           id: messages.id,
-          content: messages.content,
+          chatId: messages.chatId,
           senderId: messages.senderId,
           messageType: messages.messageType,
           createdAt: messages.createdAt,
+          content: sql`'[Encrypted]'`,
         })
         .from(messages)
         .where(
@@ -221,7 +221,7 @@ export const getChatById = async (req, res, next) => {
     const [lastMessage] = await db
       .select({
         id: messages.id,
-        content: messages.content,
+        content: sql`'[Encrypted]'`,
         senderId: messages.senderId,
         messageType: messages.messageType,
         createdAt: messages.createdAt,

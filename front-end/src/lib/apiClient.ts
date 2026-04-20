@@ -17,7 +17,9 @@ export const setAccessToken = (token: string) => {
 };
 
 export const clearAccessToken = () => {
-  _accessToken = null;
+  _accessToken = "";
+  localStorage.removeItem("accessToken");
+  localStorage.clear()
   delete api.defaults.headers.common['Authorization'];
 };
 

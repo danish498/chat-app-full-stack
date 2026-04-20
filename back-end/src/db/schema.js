@@ -11,46 +11,149 @@ import {
 import { relations } from 'drizzle-orm';
 
 /* ================= USERS ================= */
+// export const users = pgTable('users', {
+//   id: uuid('id').primaryKey().defaultRandom(),
+//   username: varchar('username', { length: 50 }).unique().notNull(),
+//   email: varchar('email', { length: 255 }).unique().notNull(),
+//   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+//   displayName: varchar('display_name', { length: 100 }),
+//   avatarUrl: varchar('avatar_url', { length: 500 }),
+//   status: varchar('status', { length: 20 }).default('offline'),
+//   lastSeen: timestamp('last_seen', { withTimezone: true }),
+//   publicKey: varchar('public_key', { length: 64 }),
+//   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+//   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+// });
+
+
+
+
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
+
   username: varchar('username', { length: 50 }).unique().notNull(),
   email: varchar('email', { length: 255 }).unique().notNull(),
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+
   displayName: varchar('display_name', { length: 100 }),
   avatarUrl: varchar('avatar_url', { length: 500 }),
+
+  // 🔐 KEY BACKUP (Phase 1)
+  encryptedPrivateKey: text('encrypted_private_key'), // encrypted with password-derived key
+  keySalt: text('key_salt'), // used for KDF (argon2/scrypt)
+
   status: varchar('status', { length: 20 }).default('offline'),
   lastSeen: timestamp('last_seen', { withTimezone: true }),
-  publicKey: varchar('public_key', { length: 64 }),
+
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
 
+
+
+
+export const userDevices = pgTable(
+  'user_devices',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    deviceId: varchar('device_id', { length: 128 }).notNull(),
+    deviceName: varchar('device_name', { length: 100 }),
+
+    // 🔑 PUBLIC KEY (used for encryption)
+    publicKey: text('public_key').notNull(),
+
+    // 🔐 OPTIONAL: store encrypted private key per device (for sync/QR future)
+    encryptedPrivateKey: text('encrypted_private_key'),
+
+    isRevoked: boolean('is_revoked').default(false),
+
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    uniqueUserDevice: unique().on(table.userId, table.deviceId),
+  })
+);
+
+
 /* ================= CHATS ================= */
+// export const chats = pgTable('chats', {
+//   id: uuid('id').primaryKey().defaultRandom(),
+//   name: varchar('name', { length: 100 }),
+//   description: text('description'),
+//   avatarUrl: varchar('avatar_url', { length: 500 }),
+//   type: varchar('type', { length: 20 }).default('direct').notNull(),
+//   createdBy: uuid('created_by').references(() => users.id),
+//   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+//   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+// });
+
+
+
 export const chats = pgTable('chats', {
   id: uuid('id').primaryKey().defaultRandom(),
+
   name: varchar('name', { length: 100 }),
   description: text('description'),
   avatarUrl: varchar('avatar_url', { length: 500 }),
+
   type: varchar('type', { length: 20 }).default('direct').notNull(),
+
   createdBy: uuid('created_by').references(() => users.id),
+
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
 
 /* ================= CHAT PARTICIPANTS ================= */
+// export const chatParticipants = pgTable(
+//   'chat_participants',
+//   {
+//     id: uuid('id').primaryKey().defaultRandom(),
+//     chatId: uuid('chat_id')
+//       .notNull()
+//       .references(() => chats.id, { onDelete: 'cascade' }),
+//     userId: uuid('user_id')
+//       .notNull()
+//       .references(() => users.id, { onDelete: 'cascade' }),
+//     role: varchar('role', { length: 20 }).default('member'),
+//     joinedAt: timestamp('joined_at', { withTimezone: true }).defaultNow(),
+//     lastReadAt: timestamp('last_read_at', { withTimezone: true }),
+//     isMuted: boolean('is_muted').default(false),
+//     isArchived: boolean('is_archived').default(false),
+//   },
+//   (table) => ({
+//     uniqueChatUser: unique().on(table.chatId, table.userId),
+//   })
+// );
+
+
+
+
 export const chatParticipants = pgTable(
   'chat_participants',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+
     chatId: uuid('chat_id')
       .notNull()
       .references(() => chats.id, { onDelete: 'cascade' }),
+
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+
     role: varchar('role', { length: 20 }).default('member'),
+
     joinedAt: timestamp('joined_at', { withTimezone: true }).defaultNow(),
     lastReadAt: timestamp('last_read_at', { withTimezone: true }),
+
     isMuted: boolean('is_muted').default(false),
     isArchived: boolean('is_archived').default(false),
   },
@@ -62,29 +165,50 @@ export const chatParticipants = pgTable(
 /* ================= MESSAGES ================= */
 export const messages = pgTable('messages', {
   id: uuid('id').primaryKey().defaultRandom(),
+
   chatId: uuid('chat_id')
     .notNull()
     .references(() => chats.id, { onDelete: 'cascade' }),
+
   senderId: uuid('sender_id')
     .notNull()
     .references(() => users.id),
-  content: text('content').notNull(),
+
   messageType: varchar('message_type', { length: 20 }).default('text'),
-  fileUrl: varchar('file_url', { length: 500 }),
-  fileName: varchar('file_name', { length: 255 }),
-  fileSize: integer('file_size'),
-  // sequence: integer('sequence').default(0),
+
   replyToId: uuid('reply_to_id').references(() => messages.id),
-  nonce: varchar('nonce', { length: 32 }),
-  isEncrypted: boolean('is_encrypted').default(false),
+
   isEdited: boolean('is_edited').default(false),
   editedAt: timestamp('edited_at', { withTimezone: true }),
+
   isDeleted: boolean('is_deleted').default(false),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
+
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
-
 });
+
+
+
+
+export const messageRecipients = pgTable(
+  'message_recipients',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    messageId: uuid('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+
+    deviceId: varchar('device_id', { length: 128 }).notNull(),
+
+    // 🔐 encrypted message per device
+    ciphertext: text('ciphertext').notNull(),
+    nonce: text('nonce').notNull(),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  }
+);
 
 /* ================= MESSAGE REACTIONS ================= */
 export const messageReactions = pgTable(
@@ -199,8 +323,10 @@ export const usersRelations = relations(users, ({ many }) => ({
   messageReactions: many(messageReactions),
   typingIndicators: many(typingIndicators),
   userSettings: many(userSettings),
-  blockedUsers: many(blockedUsers),
+  blocking: many(blockedUsers, { relationName: 'blocker' }),
+  blockedBy: many(blockedUsers, { relationName: 'blocked' }),
   refreshTokens: many(refreshTokens),
+  devices: many(userDevices),
 }));
 
 export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
@@ -243,10 +369,12 @@ export const messagesRelations = relations(messages, ({ one, many }) => ({
   replyTo: one(messages, {
     fields: [messages.replyToId],
     references: [messages.id],
+    relationName: 'replies',
   }),
-  replies: many(messages),
+  replies: many(messages, { relationName: 'replies' }),
   reactions: many(messageReactions),
   attachments: many(messageAttachments),
+  recipients: many(messageRecipients),
 }));
 
 export const messageReactionsRelations = relations(messageReactions, ({ one }) => ({
@@ -289,9 +417,25 @@ export const blockedUsersRelations = relations(blockedUsers, ({ one }) => ({
   blocker: one(users, {
     fields: [blockedUsers.blockerId],
     references: [users.id],
+    relationName: 'blocker',
   }),
   blocked: one(users, {
     fields: [blockedUsers.blockedId],
     references: [users.id],
+    relationName: 'blocked',
+  }),
+}));
+
+export const userDevicesRelations = relations(userDevices, ({ one }) => ({
+  user: one(users, {
+    fields: [userDevices.userId],
+    references: [users.id],
+  }),
+}));
+
+export const messageRecipientsRelations = relations(messageRecipients, ({ one }) => ({
+  message: one(messages, {
+    fields: [messageRecipients.messageId],
+    references: [messages.id],
   }),
 }));

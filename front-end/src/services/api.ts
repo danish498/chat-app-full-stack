@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getOrCreateDeviceId } from '@/lib/e2ee';
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
@@ -32,13 +33,20 @@ export function getApiErrorMessage(error: unknown, fallback = 'Something went wr
   return fallback;
 }
 
-// Add a request interceptor to include the auth token in headers
+// Add a request interceptor to include the auth token and device ID in headers
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Add Device ID for E2EE support
+    const deviceId = getOrCreateDeviceId();
+    if (deviceId) {
+      config.headers['x-device-id'] = deviceId;
+    }
+
     return config;
   },
   (error) => {

@@ -11,7 +11,7 @@ import { authenticateToken } from "../middleware/auth.js";
 const router = express.Router();
 
 router.get("/:chatId", authenticateToken, getMessagesByChatId);
-router.post("/", validate(messageSchemas.send), authenticateToken, sendMessage);
+router.post("/", authenticateToken, sendMessage);
 router.delete(
   "/:id",
   validate(messageSchemas.getById),

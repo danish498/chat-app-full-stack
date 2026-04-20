@@ -9,7 +9,7 @@ import { Mail, Lock, ArrowRight } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import authService from "@/services/auth.service";
 import { apiFetch, setAccessToken } from "@/lib/apiClient";
-import { generateAndStoreKeyPair, idbGet } from "@/lib/e2ee";
+import { generateAndStoreKeyPair, idbGet, restorePrivateKey } from "@/lib/e2ee";
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -69,7 +69,13 @@ export default function LoginPage() {
         const existingKey = await idbGet(`privateKey:${userId}`);
 
         if (!existingKey) {
-          // New device or cleared browser — regenerate and re-upload public key
+          try {
+            // ── Try to restore private key from server backup ──
+            await restorePrivateKey(userId, formData.password, apiFetch);
+          } catch (err) {
+            console.warn("Could not restore private key:", err);
+          }
+          // Register this device (uses restored key if available, else generates new)
           await generateAndStoreKeyPair(userId, apiFetch);
         }
 
