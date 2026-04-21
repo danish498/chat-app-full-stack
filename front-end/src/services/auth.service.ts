@@ -1,4 +1,6 @@
 import api from './api';
+import { setAccessToken, clearAccessToken } from '@/lib/apiClient';
+
 
 export interface User {
   id: string;
@@ -32,7 +34,7 @@ const authService = {
     const { success, data } = response.data;
     
       if (success && data.accessToken) {
-      localStorage.setItem('accessToken', data.accessToken);
+      setAccessToken(data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       localStorage.setItem('user', JSON.stringify(data.user));
     }
@@ -50,7 +52,7 @@ const authService = {
     const { success, data } = response.data;
 
     if (success && data.accessToken) {
-      localStorage.setItem('accessToken', data.accessToken);
+      setAccessToken(data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       localStorage.setItem('user', JSON.stringify(data.user));
     }
@@ -73,10 +75,7 @@ const authService = {
         console.error('Logout API call failed:', err);
       }
     }
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('deviceId');
+    clearAccessToken();
     window.location.href = '/login';
   },
   getProfile: async (): Promise<User> => {

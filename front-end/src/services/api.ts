@@ -27,7 +27,6 @@ export function getApiErrorMessage(error: unknown, fallback = 'Something went wr
   }
 
 
-  console.log({error});
 
   if (error instanceof Error && error.message) return error.message;
   return fallback;

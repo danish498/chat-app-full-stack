@@ -137,9 +137,12 @@ export interface Message {
   id: string;
   chatId: string;
   senderId: string;
+  senderDeviceId?: string;
   content: string;
   nonce?: string;
+  ciphertext?: string;
   isEncrypted?: boolean;
+  encryptedPayloads?: { deviceId: string; ciphertext: string; nonce: string }[];
   messageType: "text" | "image" | "file" | "video";
   fileUrl: string | null;
   createdAt: string;

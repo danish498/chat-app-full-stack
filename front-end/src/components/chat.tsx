@@ -3,8 +3,23 @@
 import { UserData, Message } from "@/app/data";
 import React, { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Sidebar } from "./sidebar";
-import { Conversation } from "./conversation";
+import dynamic from "next/dynamic";
+
+const Sidebar = dynamic(() => import("./sidebar").then((mod) => mod.Sidebar), {
+  loading: () => (
+    <div className="flex items-center justify-center h-full w-full">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  ),
+});
+
+const Conversation = dynamic(() => import("./conversation").then((mod) => mod.Conversation), {
+  loading: () => (
+    <div className="flex items-center justify-center h-full w-full">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  ),
+});
 import useSWR, { mutate } from "swr";
 import chatService from "@/services/chat.service";
 import authService from "@/services/auth.service";
@@ -13,10 +28,16 @@ import { Loader2 } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
 import useSWRMutation from "swr/mutation";
 import messageService from "@/services/message.service";
-import { CreateGroupModal } from "./CreateGroupModal";
-import { useWebSocket } from "@/hooks/useWebSocket";
-import { Button } from "./ui/button";
-import { ChatDetailsPanel } from "./ChatDetailsPanel";
+const CreateGroupModal = dynamic(() => import("./CreateGroupModal").then((mod) => mod.CreateGroupModal));
+
+const ChatDetailsPanel = dynamic(() => import("./ChatDetailsPanel").then((mod) => mod.ChatDetailsPanel), {
+  loading: () => (
+    <div className="flex items-center justify-center h-full w-full">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  ),
+});
+
 import { Sheet, SheetContent } from "./ui/sheet";
 
 interface ChatProps {
@@ -31,9 +52,7 @@ const toSidebarUser = (chat: any): UserData =>
   ({
     id: chat.type === "direct" ? chat.otherUser.id : chat.id,
     name:
-      chat.type === "direct"
-        ? chat.otherUser.username
-        : (chat.name ?? "Group"),
+      chat.type === "direct" ? chat.otherUser.username : (chat.name ?? "Group"),
     avatar:
       chat.type === "direct"
         ? (chat.otherUser.avatarUrl ?? FALLBACK_AVATAR)
@@ -47,10 +66,10 @@ export function Chat({
   defaultCollapsed: _defaultCollapsed = false,
   navCollapsedSize: _navCollapsedSize,
 }: ChatProps) {
-  const {
-    data: chats,
-    isLoading: chatLoading,
-  } = useSWR("user-chats", chatService.getChats);
+  const { data: chats, isLoading: chatLoading } = useSWR(
+    "user-chats",
+    chatService.getChats,
+  );
 
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -62,34 +81,24 @@ export function Chat({
     string | null
   >(null);
 
-  const {
-    data: selectedChat,
-  } = useSWR(
+  const { data: selectedChat } = useSWR(
     selectedChatIdForDetails
       ? ["get-chat-by-id", selectedChatIdForDetails]
       : null,
     () => chatService.getChatById(selectedChatIdForDetails as string),
   );
 
-  const {
-    data: searchResults,
-    isLoading: searchLoading,
-  } = useSWR(
+  const { data: searchResults, isLoading: searchLoading } = useSWR(
     debouncedSearchQuery ? ["search-users", debouncedSearchQuery] : null,
     () => userService.searchUsers(debouncedSearchQuery),
   );
 
-  const {
-    data: messagesData,
-    isLoading: messageLoading,
-  } = useSWR(selectedChatId ? ["messages", selectedChatId] : null, () =>
-    messageService.getMessagesByChatId(selectedChatId!),
+  const { data: messagesData, isLoading: messageLoading } = useSWR(
+    selectedChatId ? ["messages", selectedChatId] : null,
+    () => messageService.getMessagesByChatId(selectedChatId!),
   );
 
-  const {
-    trigger,
-    isMutating,
-  } = useSWRMutation(
+  const { trigger, isMutating } = useSWRMutation(
     "chat-create",
     async (
       url: string,
@@ -222,8 +231,6 @@ export function Chat({
     // setSelectedChatId(user.id);
 
     setSelectedChatIdForDetails(selectedChatId);
-
-    // console.log('safsdafsadfsdafsa', user.id);
   };
 
   return (
@@ -232,9 +239,7 @@ export function Chat({
       style={{ height: "100dvh" }}
     >
       {/* Sidebar - Hidden on mobile if a user is selected */}
-      <div
-        className={sidebarClassName}
-      >
+      <div className={sidebarClassName}>
         {chatLoading ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="h-8 w-8 animate-spin" />
@@ -256,9 +261,7 @@ export function Chat({
       </div>
 
       {/* Main Chat Area - Hidden on mobile if no user is selected */}
-      <div
-        className={conversationClassName}
-      >
+      <div className={conversationClassName}>
         {selectedUser ? (
           messageLoading ? (
             <div className="flex items-center justify-center h-full">

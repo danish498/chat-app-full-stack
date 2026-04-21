@@ -27,6 +27,7 @@ import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { useTheme } from "next-themes";
 import authService from "@/services/auth.service";
+import Link from "next/link";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import {
   ACCENT_THEMES,
@@ -58,7 +59,7 @@ interface SidebarProps {
   onCreateGroupClick?: () => void;
 }
 
-export function Sidebar({
+export const Sidebar = React.memo(function Sidebar({
   links,
   onSelectUser,
   onSelectChat,
@@ -147,18 +148,20 @@ export function Sidebar({
             <MoreHorizontal size={20} className="text-muted-foreground" />
           </div>
 
-          <Avatar className="h-8 w-8 cursor-pointer border ml-1">
-            <AvatarImage
-              src={
-                currentUser?.avatarUrl ||
-                "https://avatars.githubusercontent.com/u/79553845"
-              }
-              alt={currentUser?.username || "Me"}
-            />
-            <AvatarFallback>
-              {currentUser?.username?.[0]?.toUpperCase() || "U"}
-            </AvatarFallback>
-          </Avatar>
+          <Link href="/profile">
+            <Avatar className="h-8 w-8 cursor-pointer border ml-1 hover:opacity-80 transition-opacity">
+              <AvatarImage
+                src={
+                  currentUser?.avatarUrl ||
+                  "https://avatars.githubusercontent.com/u/79553845"
+                }
+                alt={currentUser?.username || "Me"}
+              />
+              <AvatarFallback>
+                {currentUser?.username?.[0]?.toUpperCase() || "U"}
+              </AvatarFallback>
+            </Avatar>
+          </Link>
         </div>
       </div>
 
@@ -182,10 +185,10 @@ export function Sidebar({
         </div>
       </div>
 
-      <nav className="flex-1 min-h-0 gap-4 px-2 overflow-y-auto overflow-x-hidden pb-2">
+      <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-2">
         {searchPerformed ? (
           <div className="flex flex-col gap-1">
-            <p className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Search Results
             </p>
             {searchResults && searchResults.length > 0
@@ -196,13 +199,13 @@ export function Sidebar({
                       onSelectUser(mapUserToSidebarUser(user));
                     }}
                     className={cn(
-                      "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors mx-2 rounded-lg mb-1",
+                      "flex items-stretch gap-3 pl-3 pr-4 cursor-pointer transition-all duration-200",
                       selectedUser?.id === user.id
-                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                        : "hover:bg-zinc-100 dark:hover:bg-zinc-800/50",
+                        ? "bg-zinc-200/80 dark:bg-zinc-700/50 border-l-4 border-l-primary"
+                        : "hover:bg-zinc-100 dark:hover:bg-zinc-800/50 border-l-4 border-l-transparent",
                     )}
                   >
-                    <div className="relative shrink-0">
+                    <div className="relative shrink-0 flex items-center py-3">
                       <Avatar className="h-12 w-12">
                         <AvatarImage
                           src={
@@ -217,14 +220,13 @@ export function Sidebar({
                         </AvatarFallback>
                       </Avatar>
                       {user.status === "online" && (
-                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
+                        <span className="absolute bottom-3 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
                       )}
                     </div>
                     <div
                       className={cn(
-                        "flex flex-col flex-1 min-w-0 pb-3 h-full justify-center",
-                        selectedUser?.id !== user.id &&
-                          "border-b border-zinc-100 dark:border-zinc-800",
+                        "flex flex-col flex-1 min-w-0 justify-center border-b border-zinc-100 dark:border-zinc-800",
+                        selectedUser?.id === user.id && "border-b-transparent",
                       )}
                     >
                       <div className="flex justify-between items-baseline">
@@ -235,7 +237,7 @@ export function Sidebar({
                           className={cn(
                             "text-[10px] uppercase tracking-wider",
                             selectedUser?.id === user.id
-                              ? "text-primary-foreground/70"
+                              ? "text-primary font-medium"
                               : "text-muted-foreground",
                           )}
                         >
@@ -247,7 +249,7 @@ export function Sidebar({
                           className={cn(
                             "text-xs truncate",
                             selectedUser?.id === user.id
-                              ? "text-primary-foreground/80"
+                              ? "text-zinc-700 dark:text-zinc-300 font-medium"
                               : "text-zinc-500 dark:text-zinc-400",
                           )}
                         >
@@ -272,13 +274,13 @@ export function Sidebar({
                   onSelectChat(link.id);
                 }}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors mx-2 rounded-lg mb-1",
+                  "flex items-stretch gap-3 pl-3 pr-4 cursor-pointer transition-all duration-200",
                   link.variant === "grey"
-                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                    : "hover:bg-zinc-100 dark:hover:bg-zinc-800/50",
+                    ? "bg-zinc-200/80 dark:bg-zinc-700/50 border-l-4 border-l-primary"
+                    : "hover:bg-zinc-100 dark:hover:bg-zinc-800/50 border-l-4 border-l-transparent",
                 )}
               >
-                <div className="relative shrink-0">
+                <div className="relative shrink-0 flex items-center py-3">
                   <Avatar className="h-12 w-12">
                     <AvatarImage
                       src={link.avatar}
@@ -288,14 +290,13 @@ export function Sidebar({
                     <AvatarFallback>{link?.name?.[0] || "U"}</AvatarFallback>
                   </Avatar>
                   {link.type === "direct" && link.status === "online" && (
-                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
+                    <span className="absolute bottom-3 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
                   )}
                 </div>
                 <div
                   className={cn(
-                    "flex flex-col flex-1 min-w-0 pb-3 h-full justify-center",
-                    link.variant !== "grey" &&
-                      "border-b border-zinc-100 dark:border-zinc-800",
+                    "flex flex-col flex-1 min-w-0 justify-center border-b border-zinc-100 dark:border-zinc-800",
+                    link.variant === "grey" && "border-b-transparent",
                   )}
                 >
                   <div className="flex justify-between items-center gap-2">
@@ -307,7 +308,7 @@ export function Sidebar({
                         className={cn(
                           "text-[10px] px-2 py-0.5 rounded-full border",
                           link.variant === "grey"
-                            ? "bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20"
+                            ? "bg-primary/10 text-primary border-primary/20"
                             : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 border-zinc-200/70 dark:border-zinc-700/70",
                         )}
                       >
@@ -317,7 +318,7 @@ export function Sidebar({
                         className={cn(
                           "text-[11px]",
                           link.variant === "grey"
-                            ? "text-primary-foreground/70"
+                            ? "text-primary font-medium"
                             : "text-muted-foreground",
                         )}
                       >
@@ -337,7 +338,7 @@ export function Sidebar({
                       className={cn(
                         "text-[13px] truncate pr-2",
                         link.variant === "grey"
-                          ? "text-primary-foreground/80"
+                          ? "text-zinc-700 dark:text-zinc-300 font-medium"
                           : "text-zinc-500 dark:text-zinc-400",
                       )}
                     >
@@ -481,4 +482,4 @@ export function Sidebar({
       </div>
     </div>
   );
-}
+});

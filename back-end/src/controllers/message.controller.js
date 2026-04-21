@@ -1,5 +1,10 @@
 import { db } from "../db/db.js";
-import { chatParticipants, messages, chats, messageRecipients } from "../db/schema.js";
+import {
+  chatParticipants,
+  messages,
+  chats,
+  messageRecipients,
+} from "../db/schema.js";
 import { eq, desc, isNull, and, or, lt } from "drizzle-orm";
 import logger from "../utils/logger.js";
 
@@ -114,11 +119,6 @@ import logger from "../utils/logger.js";
 //   }
 // };
 
-
-
-
-
-
 export const getMessagesByChatId = async (req, res, next) => {
   try {
     const { chatId } = req.params;
@@ -225,8 +225,6 @@ export const getMessagesByChatId = async (req, res, next) => {
   }
 };
 
-
-
 export const sendMessage = async (req, res, next) => {
   try {
     const {
@@ -269,12 +267,16 @@ export const sendMessage = async (req, res, next) => {
     );
 
     // 🚀 Broadcast (no plaintext anymore)
-    req.app.locals.broadcastNewMessage(chatId, {
+    req.app.locals.broadcastNewGroupMessage(chatId, {
       id: msg.id,
       chatId,
       senderId,
+      senderDeviceId: req.headers["x-device-id"],
       messageType,
+      replyToId,
       createdAt: msg.createdAt,
+      isEdited: msg.isEdited,
+      encryptedPayloads,
     });
 
     res.status(201).json({

@@ -242,21 +242,37 @@ export const encryptMessage = async ({
 /* ================= DECRYPTION ================= */
 
 export const decryptMessage = async ({
-  message, // contains ciphertext + nonce
+  message, // contains ciphertext + nonce OR encryptedPayloads array
   recipientUserId,
   senderUserId,
   apiFetch,
 }) => {
   const recipientPrivKey = await getPrivateKey(recipientUserId);
+  const deviceId = getOrCreateDeviceId();
+
+  let payload = message;
+
+  // If the message has multiple encrypted payloads, find the one for this device
+  if (message.encryptedPayloads && Array.isArray(message.encryptedPayloads)) {
+    payload = message.encryptedPayloads.find((p) => p.deviceId === deviceId);
+  }
+
+  if (!payload || !payload.ciphertext || !payload.nonce) {
+    throw new Error("No encrypted payload found for this device");
+  }
 
   // fetch sender devices (we need public key)
   const senderDevices = await fetchUserDevices(senderUserId, apiFetch);
 
+  if (!senderDevices || senderDevices.length === 0) {
+    throw new Error("No sender devices found");
+  }
+
   // ⚠️ for now pick first device (later improve)
   const senderPubKey = senderDevices[0].publicKey;
 
-  const ciphertext = decodeBase64(message.ciphertext);
-  const nonce = decodeBase64(message.nonce);
+  const ciphertext = decodeBase64(payload.ciphertext);
+  const nonce = decodeBase64(payload.nonce);
 
   const decrypted = nacl.box.open(
     ciphertext,

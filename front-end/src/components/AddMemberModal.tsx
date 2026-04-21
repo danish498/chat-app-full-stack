@@ -8,7 +8,14 @@ import { Loader2, Plus, Search } from "lucide-react";
 
 import chatService from "@/services/chat.service";
 import { getApiErrorMessage } from "@/services/api";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -57,9 +64,6 @@ export function AddMemberModal({
       mutate("user-chats");
       toast.success("Member added");
     } catch (err) {
-
-        console.log({err});
-
       toast.error(getApiErrorMessage(err, "Failed to add member"));
     }
   };
@@ -70,7 +74,9 @@ export function AddMemberModal({
         <div className="p-6 pb-3">
           <DialogHeader>
             <DialogTitle>Add member</DialogTitle>
-            <DialogDescription>Search a user and add them to this group.</DialogDescription>
+            <DialogDescription>
+              Search a user and add them to this group.
+            </DialogDescription>
           </DialogHeader>
         </div>
 
@@ -88,14 +94,18 @@ export function AddMemberModal({
 
         <ScrollArea className="max-h-[360px] px-2 pb-2">
           {!debouncedQ ? (
-            <div className="px-4 pb-4 text-sm text-muted-foreground">Type to search users.</div>
+            <div className="px-4 pb-4 text-sm text-muted-foreground">
+              Type to search users.
+            </div>
           ) : isSearching ? (
             <div className="px-4 pb-4 flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               Searching…
             </div>
           ) : users.length === 0 ? (
-            <div className="px-4 pb-4 text-sm text-muted-foreground">No users found.</div>
+            <div className="px-4 pb-4 text-sm text-muted-foreground">
+              No users found.
+            </div>
           ) : (
             <div className="px-2 pb-2 space-y-1">
               {users.map((u) => (
@@ -106,11 +116,17 @@ export function AddMemberModal({
                   <div className="flex items-center gap-3 min-w-0">
                     <Avatar className="h-10 w-10 shrink-0">
                       <AvatarImage src={u.avatarUrl ?? ""} alt={u.username} />
-                      <AvatarFallback>{(u.displayName || u.username || "U")[0]?.toUpperCase()}</AvatarFallback>
+                      <AvatarFallback>
+                        {(u.displayName || u.username || "U")[0]?.toUpperCase()}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <div className="font-medium truncate">{u.displayName || u.username}</div>
-                      <div className="text-xs text-muted-foreground truncate">@{u.username}</div>
+                      <div className="font-medium truncate">
+                        {u.displayName || u.username}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        @{u.username}
+                      </div>
                     </div>
                   </div>
                   <Button
@@ -135,7 +151,11 @@ export function AddMemberModal({
         </ScrollArea>
 
         <DialogFooter className="px-6 py-4 border-t">
-          <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={isAdding}>
+          <Button
+            variant="secondary"
+            onClick={() => onOpenChange(false)}
+            disabled={isAdding}
+          >
             Close
           </Button>
         </DialogFooter>
@@ -143,4 +163,3 @@ export function AddMemberModal({
     </Dialog>
   );
 }
-

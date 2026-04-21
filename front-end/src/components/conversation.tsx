@@ -6,7 +6,11 @@ import { MessageSkeleton } from "./message-skeleton";
 import MessageBottombar from "./message-bottombar";
 import messageService from "@/services/message.service";
 import { useSWRConfig } from "swr";
-import { encryptMessage, decryptMessage } from "@/lib/e2ee";
+import {
+  encryptMessage,
+  decryptMessage,
+  getOrCreateDeviceId,
+} from "@/lib/e2ee";
 import { apiFetch } from "@/lib/apiClient";
 import authService from "@/services/auth.service";
 import { useWebSocket } from "@/hooks/useWebSocket";
@@ -23,7 +27,7 @@ interface ConversationProps {
   onUserClick?: () => void;
 }
 
-export function Conversation({
+export const Conversation = React.memo(function Conversation({
   chatId,
   messages,
   initialNextCursor,
@@ -64,8 +68,8 @@ export function Conversation({
 
       const decrypted = await Promise.all(
         batch.map(async (msg) => {
-          if (!msg.isEncrypted) {
-            //need to check after word reverse condtion applied right now
+          // Check if message is encrypted (either by flag or presence of payloads)
+          if (msg.encryptedPayloads || !msg.isEncrypted) {
             try {
               const plaintext = await decryptMessage({
                 message: msg as any,
@@ -93,11 +97,10 @@ export function Conversation({
 
       // Messages
       if (msg.type === "message:receive") {
-        const incoming: Message | undefined = msg?.data?.chatId
-          ? msg.data
-          : (msg?.data ?? undefined);
+        const incoming = msg.data;
         if (!incoming) return;
-        if (!chatId || incoming.chatId !== chatId) return;
+
+        if (incoming.chatId !== chatId) return;
 
         try {
           const [decrypted] = await decryptBatch([incoming]);
@@ -105,6 +108,9 @@ export function Conversation({
           const isMe = currentUser
             ? decrypted.senderId === currentUser.id
             : false;
+
+          const currentDeviceId = getOrCreateDeviceId();
+          if (decrypted.senderDeviceId === currentDeviceId) return;
 
           const finalized: Message = { ...decrypted, isMe };
 
@@ -274,8 +280,6 @@ export function Conversation({
       try {
         const decrypted = await decryptBatch(messages);
 
-        console.log("decrypted", decrypted);
-
         if (isCancelled) return;
         setMessages(decrypted);
         setNextCursor(initialNextCursor ?? null);
@@ -367,8 +371,6 @@ export function Conversation({
       replyToId: options?.replyToId ?? null,
     } as Message;
 
-    console.log("chatType", chatType);
-
     setMessages((prev) => [...prev, optimisticMessage]);
 
     try {
@@ -392,8 +394,6 @@ export function Conversation({
           participantUserIds: [String(currentUser.id), String(selectedUser.id)],
           apiFetch,
         });
-
-        console.log("asdfasdfsafsadasfasdfsad", encryptedPayloads);
 
         messageToSend.encryptedPayloads = encryptedPayloads;
       } else {
@@ -454,4 +454,4 @@ export function Conversation({
       </div>
     </div>
   );
-}
+});

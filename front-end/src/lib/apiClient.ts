@@ -6,10 +6,11 @@ import { AxiosResponse } from 'axios';
 // Access token lives here — never in localStorage, never in a cookie JS can read.
 // Lost on page refresh intentionally — the silent refresh below restores it.
 
-let _accessToken: string | null = null;
+let _accessToken: string | null = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
 
 export const setAccessToken = (token: string) => {
   _accessToken = token;
+  localStorage.setItem('accessToken', token);
 
   // Also set on the axios instance so all existing api.get/post calls
   // automatically send the Authorization header — no changes needed elsewhere
@@ -17,13 +18,20 @@ export const setAccessToken = (token: string) => {
 };
 
 export const clearAccessToken = () => {
-  _accessToken = "";
+  _accessToken = null;
   localStorage.removeItem("accessToken");
-  localStorage.clear()
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("user");
+  // localStorage.clear() // Removed this as it's too aggressive and might clear other things like deviceId
   delete api.defaults.headers.common['Authorization'];
 };
 
-export const getAccessToken = () => _accessToken;
+export const getAccessToken = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem("accessToken");
+  }
+  return _accessToken;
+};
 
 // ─── Silent refresh ────────────────────────────────────────────────────────────
 // Called automatically when any request gets a 401.
