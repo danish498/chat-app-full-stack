@@ -104,7 +104,7 @@ const connectSocket = () => {
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        
+
         messageListeners.forEach((cb) => {
           try {
             cb(message);

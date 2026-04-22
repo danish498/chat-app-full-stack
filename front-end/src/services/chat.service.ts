@@ -1,18 +1,27 @@
 import api from './api';
 import { User } from './auth.service';
 
+export interface ChatParticipant {
+  userId: string;
+  role: string;
+  username?: string;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+  lastSeen?: string | null;
+  joinedAt?: string;
+}
+
 export interface Chat {
   id: string;
   name?: string;
   type: 'direct' | 'group';
   avatarUrl: string;
-  participants: User[];
+  participants: ChatParticipant[];
   otherUser: User;
   lastMessage?: any;
   createdAt: string;
   updatedAt: string;
   isExistingChat: boolean;
-  
 }
 
 

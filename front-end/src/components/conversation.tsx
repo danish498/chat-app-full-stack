@@ -25,6 +25,7 @@ interface ConversationProps {
   onBack?: () => void;
   isLoading?: boolean;
   onUserClick?: () => void;
+  participantIds?: string[];
 }
 
 export const Conversation = React.memo(function Conversation({
@@ -36,6 +37,7 @@ export const Conversation = React.memo(function Conversation({
   onBack,
   isLoading,
   onUserClick,
+  participantIds,
 }: ConversationProps) {
   const { mutate } = useSWRConfig();
   const [isOnline, setIsOnline] = React.useState(false);
@@ -49,6 +51,8 @@ export const Conversation = React.memo(function Conversation({
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
   const [nextCursor, setNextCursor] = React.useState<string | null>(null);
   const [hasMore, setHasMore] = React.useState(false);
+  const [memberCount, setMemberCount] = React.useState<number | null>(null);
+  const [onlineMembers, setOnlineMembers] = React.useState<string[]>([]);
   const listRef = React.useRef<HTMLDivElement>(null);
   const selectedUserId = String(selectedUser.id);
 
@@ -57,39 +61,34 @@ export const Conversation = React.memo(function Conversation({
     [selectedUserId],
   );
 
-  const decryptBatch = React.useCallback(
-    async (batch: Message[]) => {
-      if (!batch.length) return batch;
+  const decryptBatch = React.useCallback(async (batch: Message[]) => {
+    if (!batch.length) return batch;
 
-      const currentUser = authService.getCurrentUser();
-      if (!currentUser) return batch;
+    const currentUser = authService.getCurrentUser();
+    if (!currentUser) return batch;
 
-      if (chatType !== "direct") return batch;
-
-      const decrypted = await Promise.all(
-        batch.map(async (msg) => {
-          // Check if message is encrypted (either by flag or presence of payloads)
-          if (msg.encryptedPayloads || !msg.isEncrypted) {
-            try {
-              const plaintext = await decryptMessage({
-                message: msg as any,
-                recipientUserId: String(currentUser.id),
-                senderUserId: String(msg.senderId),
-                apiFetch,
-              });
-              return { ...msg, content: plaintext };
-            } catch (err) {
-              console.error("Failed to decrypt message:", msg.id, err);
-              return { ...msg, content: "[Decryption Failed]" };
-            }
+    const decrypted = await Promise.all(
+      batch.map(async (msg) => {
+        // Check if message is encrypted (either by flag or presence of payloads)
+        if (msg.encryptedPayloads || !msg.isEncrypted) {
+          try {
+            const plaintext = await decryptMessage({
+              message: msg as any,
+              recipientUserId: String(currentUser.id),
+              senderUserId: String(msg.senderId),
+              apiFetch,
+            });
+            return { ...msg, content: plaintext };
+          } catch (err) {
+            console.error("Failed to decrypt message:", msg.id, err);
+            return { ...msg, content: "[Decryption Failed]" };
           }
-          return msg;
-        }),
-      );
-      return decrypted;
-    },
-    [chatType],
-  );
+        }
+        return msg;
+      }),
+    );
+    return decrypted;
+  }, []);
 
   const handleWsMessage = React.useCallback(
     async (msg: any) => {
@@ -180,6 +179,11 @@ export const Conversation = React.memo(function Conversation({
         }
       }
 
+      if (msg.type === "room:members_count") {
+        setMemberCount(msg.count);
+        setOnlineMembers(msg.userIds || []);
+      }
+
       // Typing (direct chats only)
       if (chatType !== "direct") return;
 
@@ -222,19 +226,25 @@ export const Conversation = React.memo(function Conversation({
 
     wsSendMessage("room:join", { room: chatId });
 
+    if (chatType === "group") {
+      wsSendMessage("room:members_count", { room: chatId });
+    }
+
     return () => {
       // Make sure typing doesn't get "stuck" for other users.
       wsSendMessage("typing:stop", { chatId });
       wsSendMessage("room:leave", { room: chatId });
       setIsOtherTyping(false);
     };
-  }, [chatId, wsStatus, wsSendMessage]);
+  }, [chatId, wsStatus, wsSendMessage, chatType]);
 
   // Reset presence/typing when switching chats.
   useEffect(() => {
     setIsOtherTyping(false);
     setIsOnline(false);
     setLastSeenOverride(null);
+    setMemberCount(null);
+    setOnlineMembers([]);
   }, [chatId, chatType, selectedUser.id]);
 
   useEffect(() => {
@@ -386,12 +396,17 @@ export const Conversation = React.memo(function Conversation({
         createdAt: optimisticMessage.createdAt,
       };
 
-      // Only encrypt text messages in direct chats (media URLs are public CDN links)
-      if (chatType === "direct" && resolvedType === "text") {
+      // Only encrypt text messages (media URLs are public CDN links)
+      if (resolvedType === "text") {
+        const pIds =
+          participantIds && participantIds.length > 0
+            ? participantIds
+            : [String(currentUser.id), String(selectedUser.id)];
+
         const { encryptedPayloads } = await encryptMessage({
           plaintext: content,
           senderUserId: String(currentUser.id),
-          participantUserIds: [String(currentUser.id), String(selectedUser.id)],
+          participantUserIds: pIds,
           apiFetch,
         });
 
@@ -424,6 +439,8 @@ export const Conversation = React.memo(function Conversation({
         onUserClick={onUserClick}
         isTyping={isOtherTyping}
         isOnline={isOnline}
+        chatType={chatType}
+        memberCount={memberCount}
       />
 
       <div className="flex-1 min-h-0 overflow-hidden">

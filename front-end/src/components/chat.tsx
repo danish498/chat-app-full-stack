@@ -13,13 +13,16 @@ const Sidebar = dynamic(() => import("./sidebar").then((mod) => mod.Sidebar), {
   ),
 });
 
-const Conversation = dynamic(() => import("./conversation").then((mod) => mod.Conversation), {
-  loading: () => (
-    <div className="flex items-center justify-center h-full w-full">
-      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-    </div>
-  ),
-});
+const Conversation = dynamic(
+  () => import("./conversation").then((mod) => mod.Conversation),
+  {
+    loading: () => (
+      <div className="flex items-center justify-center h-full w-full">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    ),
+  },
+);
 import useSWR, { mutate } from "swr";
 import chatService from "@/services/chat.service";
 import authService from "@/services/auth.service";
@@ -28,15 +31,20 @@ import { Loader2 } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
 import useSWRMutation from "swr/mutation";
 import messageService from "@/services/message.service";
-const CreateGroupModal = dynamic(() => import("./CreateGroupModal").then((mod) => mod.CreateGroupModal));
+const CreateGroupModal = dynamic(() =>
+  import("./CreateGroupModal").then((mod) => mod.CreateGroupModal),
+);
 
-const ChatDetailsPanel = dynamic(() => import("./ChatDetailsPanel").then((mod) => mod.ChatDetailsPanel), {
-  loading: () => (
-    <div className="flex items-center justify-center h-full w-full">
-      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-    </div>
-  ),
-});
+const ChatDetailsPanel = dynamic(
+  () => import("./ChatDetailsPanel").then((mod) => mod.ChatDetailsPanel),
+  {
+    loading: () => (
+      <div className="flex items-center justify-center h-full w-full">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    ),
+  },
+);
 
 import { Sheet, SheetContent } from "./ui/sheet";
 
@@ -274,6 +282,11 @@ export function Chat({
               initialNextCursor={messagesData?.nextCursor ?? null}
               selectedUser={selectedUser}
               chatType={selectedChatType}
+              participantIds={
+                chats?.data
+                  ?.find((c) => c.id === selectedChatId)
+                  ?.participants?.map((p) => String(p.userId)) ?? []
+              }
               isLoading={messageLoading}
               onBack={isMobile ? () => setSelectedUser(null) : undefined}
               onUserClick={

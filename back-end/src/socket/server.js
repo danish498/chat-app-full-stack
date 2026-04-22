@@ -39,6 +39,7 @@ const EVENTS = {
     UPDATE: "room:update",
     MEMBER_ADD: "member:add",
     KICKED: "member:kicked",
+    MEMBERS_COUNT: "room:members_count",
   },
   NOTIFICATION: {
     PUSH: "notification:push",
@@ -90,6 +91,25 @@ const cleanupSubscriptions = (socketId) => {
   }
 };
 
+const broadcastRoomMembersCount = (targetRoom) => {
+  const members = rooms.get(targetRoom);
+  const socketIds = members ? Array.from(members) : [];
+
+  const userIds = [...new Set(
+    socketIds
+      .map(id => clients.get(id)?.userId)
+      .filter(Boolean)
+  )];
+
+  broadcastToRoom(targetRoom, {
+    type: EVENTS.ROOM.MEMBERS_COUNT,
+    room: targetRoom,
+    count: userIds.length,
+    userIds,
+    timestamp: new Date().toISOString(),
+  });
+};
+
 // ─── Messaging ────────────────────────────────────────────────────────────────
 
 const sendJsonMessage = (socket, payload) => {
@@ -136,13 +156,9 @@ const authenticate = (request) => {
       `http://${request.headers.host || "localhost"}`,
     );
     const token = url.searchParams.get("token");
-
-    console.log("token", token);
-
     if (!token) return null;
 
     const decoded = jwt.verify(token, config.jwt.accessSecret);
-    console.log("decoded", decoded);
     return { userId: decoded.userId };
   } catch (error) {
     logger.error("[ws] auth failed:", error.message);
@@ -151,7 +167,6 @@ const authenticate = (request) => {
 };
 
 const onConnect = (socket, userId) => {
-  console.log("onConnsadfasfsafsfsect", socket, userId);
   const socketId = randomUUID();
   socket.socketId = socketId;
   socket.userId = userId;
@@ -160,7 +175,6 @@ const onConnect = (socket, userId) => {
   clients.set(socketId, socket);
 
   const isFirstSocket = !userSockets.has(userId);
-  console.log("isFirstSocket", isFirstSocket);
   if (isFirstSocket) {
     userSockets.set(userId, new Set());
   }
@@ -179,7 +193,6 @@ const onConnect = (socket, userId) => {
   sendJsonMessage(socket, { type: EVENTS.CONNECTION.CONNECT, socketId });
   logger.info(`[ws] connected  socketId=${socketId} userId=${userId}`);
 
-  console.log('asfsadfsdafsdafsafdsfsda', isFirstSocket)
 
   // Broadcast presence if this is the first connection for the user
   if (isFirstSocket) {
@@ -255,6 +268,8 @@ const onMessage = (socket, raw) => {
     case "subscribe": // backward compatibility
       subscribe(socket.socketId, room || chatId);
       sendJsonMessage(socket, { type: EVENTS.ROOM.JOIN, room: room || chatId });
+      // Broadcast updated member count to all in the room
+      broadcastRoomMembersCount(room || chatId);
       break;
 
     case EVENTS.ROOM.LEAVE:
@@ -264,6 +279,8 @@ const onMessage = (socket, raw) => {
         type: EVENTS.ROOM.LEAVE,
         room: room || chatId,
       });
+      // Broadcast updated member count to remaining members
+      broadcastRoomMembersCount(room || chatId);
       break;
 
     case EVENTS.PRESENCE.TYPING_START:
@@ -304,6 +321,28 @@ const onMessage = (socket, raw) => {
         userId: requestedUserId ?? null,
         isOnline,
         onlineUserIds,
+        timestamp: new Date().toISOString(),
+      });
+      break;
+    }
+
+    case EVENTS.ROOM.MEMBERS_COUNT: {
+      const targetRoom = room || chatId || data.room;
+      const members = rooms.get(targetRoom);
+      const socketIds = members ? Array.from(members) : [];
+
+      // Get unique user IDs from sockets in this room
+      const userIds = [...new Set(
+        socketIds
+          .map(id => clients.get(id)?.userId)
+          .filter(Boolean)
+      )];
+
+      sendJsonMessage(socket, {
+        type: EVENTS.ROOM.MEMBERS_COUNT,
+        room: targetRoom,
+        count: userIds.length,
+        userIds,
         timestamp: new Date().toISOString(),
       });
       break;
@@ -366,8 +405,6 @@ const attachWebSocketServer = (server) => {
   const wss = new WebSocketServer({ server });
 
   wss.on("connection", (socket, request) => {
-
-    console.log("requesadfsadfsdfasst", request);
     const user = authenticate(request);
     if (!user) {
       socket.close(4001, "Unauthorized");
